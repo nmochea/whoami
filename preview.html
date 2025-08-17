@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XCode Studio</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --background-color: #282c34;
+            --editor-background: #21252b;
+            --text-color: #abb2bf;
+            --header-background: #21252b;
+            --border-color: #3a4049;
+            --accent-color: #61afef;
+            --preview-background: #282c34;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'Fira Code', 'Courier New', Courier, monospace;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1.5rem;
+            background-color: var(--header-background);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .toggle-button {
+            background-color: var(--accent-color);
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .toggle-button:hover {
+            background-color: #529cde;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            position: relative;
+        }
+
+        #editor, #preview {
+            width: 100%;
+            height: 100%;
+            padding: 1.5rem;
+            box-sizing: border-box;
+            font-size: 1rem;
+            line-height: 1.6;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #editor {
+            background-color: var(--editor-background);
+            border: none;
+            color: var(--text-color);
+            resize: none;
+            outline: none;
+            opacity: 1;
+            transform: translateX(0);
+            z-index: 1;
+        }
+
+        #preview {
+            background-color: var(--preview-background);
+            opacity: 0;
+            transform: translateX(100%);
+            z-index: 0;
+            overflow-y: auto;
+        }
+
+        #preview.visible {
+            opacity: 1;
+            transform: translateX(0);
+            z-index: 2;
+        }
+
+        #editor:not(.hidden) {
+            z-index: 2;
+        }
+
+        #editor.hidden {
+            opacity: 0;
+            transform: translateX(-100%);
+            z-index: 0;
+        }
+
+        #preview h1, #preview h2, #preview h3 {
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.3em;
+        }
+
+        #preview code {
+            background-color: var(--editor-background);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+
+        #preview pre code {
+            display: block;
+            padding: 1em;
+            border-radius: 5px;
+        }
+
+        #preview blockquote {
+            border-left: 4px solid var(--accent-color);
+            padding-left: 1em;
+            color: #8c92a0;
+            margin-left: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header class="header">
+            <h1>Markdown Studio</h1>
+            <button class="toggle-button" id="preview-toggle">Preview</button>
+        </header>
+        <main class="main-content">
+            <textarea id="editor" placeholder="## Welcome to Markdown Studio!
+
+Type your markdown here and click 'Preview' to see it rendered.
+
+### Features:
+- **Live Preview:** Toggle to see your markdown in action.
+- **Syntax Highlighting:** For easy reading and writing.
+- **Clean Interface:** A professional and beautiful design.
+
+`Happy coding!`"></textarea>
+            <div id="preview"></div>
+        </main>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+        const previewToggle = document.getElementById('preview-toggle');
+
+        function updatePreview() {
+            const markdownText = editor.value;
+            preview.innerHTML = marked.parse(markdownText);
+            // Re-run highlight.js on the preview content
+            preview.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+        }
+
+        editor.addEventListener('input', updatePreview);
+
+        previewToggle.addEventListener('click', () => {
+            if (preview.classList.contains('visible')) {
+                preview.classList.remove('visible');
+                editor.classList.remove('hidden');
+                previewToggle.textContent = 'Preview';
+            } else {
+                updatePreview(); 
+                preview.classList.add('visible');
+                editor.classList.add('hidden');
+                previewToggle.textContent = 'Editor';
+            }
+        });
+
+        updatePreview();
+    </script>
+
+</body>
+</html>
