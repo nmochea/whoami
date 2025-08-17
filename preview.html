@@ -176,7 +176,6 @@ Type your markdown here and click 'Preview' to see it rendered.
         function updatePreview() {
             const markdownText = editor.value;
             preview.innerHTML = marked.parse(markdownText);
-            // Re-run highlight.js on the preview content
             preview.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
             });
