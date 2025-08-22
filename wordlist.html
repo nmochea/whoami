@@ -3,10 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Text Editor</title>
+    <title>Advanced Text Editor - Dark Theme</title>
     <!-- Font Awesome CDN for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
+        :root {
+            --base03: #002b36; /* Background */
+            --base02: #073642; /* Dark Background */
+            --base01: #586e75; /* Comments / Dim */
+            --base00: #657b83; /* Default Text */
+            --base0: #839496;  /* Lighter Text */
+            --base1: #93a1a1;  /* Lighter Text */
+            --yellow: #b58900;
+            --orange: #cb4b16;
+            --cyan: #2aa198;
+            --blue: #268bd2;
+        }
+
         /* Basic Setup */
         html, body {
             height: 100%;
@@ -16,24 +29,24 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
+            background-color: var(--base03);
+            color: var(--base0);
             display: flex;
-            flex-direction: column; /* Stack toolbar and content vertically */
-            overflow: hidden; /* Prevent body from scrolling */
+            flex-direction: column;
+            overflow: hidden;
         }
 
         /* Toolbar Styling */
         .toolbar {
-            background-color: #e0e0e0;
+            background-color: var(--base02);
             padding: 8px 12px;
-            border-bottom: 1px solid #ccc;
+            border-bottom: 1px solid #001f27;
             display: flex;
             align-items: center;
             gap: 10px;
-            flex-shrink: 0; /* Prevent the toolbar from shrinking */
-            white-space: nowrap; /* Ensure it stays on one line */
-            overflow-x: auto; /* Add horizontal scroll if content overflows */
+            flex-shrink: 0;
+            white-space: nowrap;
+            overflow-x: auto;
         }
 
         .tool-group {
@@ -43,19 +56,18 @@
         }
 
         .toolbar input[type="text"], .toolbar button, .toolbar select {
-            background-color: #fff;
-            color: #333;
-            border: 1px solid #ccc;
+            background-color: var(--base03);
+            color: var(--base1);
+            border: 1px solid var(--base01);
             padding: 6px 10px;
             border-radius: 4px;
             font-size: 14px;
-            height: 33px; /* Standard height for all elements */
+            height: 33px;
             box-sizing: border-box;
         }
 
         .toolbar button {
             cursor: pointer;
-            background-color: #f0f0f0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -64,28 +76,29 @@
         }
 
         .toolbar button:hover {
-            background-color: #dcdcdc;
-            border-color: #bbb;
+            background-color: var(--base01);
+            border-color: var(--base00);
+            color: var(--base1);
         }
         
         .toolbar button:disabled {
             cursor: not-allowed;
-            opacity: 0.5;
+            opacity: 0.4;
         }
         
         .toolbar button i {
             font-size: 16px;
-            color: #333;
+            color: var(--cyan);
             width: 18px;
             text-align: center;
         }
 
         .toolbar input[type="text"]::placeholder {
-            color: #888;
+            color: var(--base01);
         }
         
         .separator {
-            border-left: 1px solid #ccc;
+            border-left: 1px solid var(--base01);
             height: 25px;
             margin: 0 5px;
         }
@@ -100,19 +113,26 @@
             overflow: hidden;
         }
 
-        #main-editor {
-            height: 60%;
-            background-color: #ffffff;
-            color: #222;
-            border: 1px solid #ccc;
+        #main-editor, #wordlist-display {
+            background-color: #00252e; /* Slightly different for depth */
+            color: var(--base1);
+            border: 1px solid var(--base02);
             padding: 15px;
-            font-family: "Courier New", Courier, monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            resize: vertical;
+            font-family: "SF Mono", "Consolas", "Courier New", monospace;
+            font-size: 15px;
+            line-height: 1.6;
             outline: none;
             border-radius: 4px;
             box-sizing: border-box;
+        }
+
+        #main-editor {
+            height: 60%;
+            resize: vertical;
+        }
+        
+        #main-editor:focus, #wordlist-display:focus {
+            border-color: var(--blue);
         }
 
         /* Integrated Wordlist Section */
@@ -128,19 +148,12 @@
             margin: 0;
             font-weight: 600;
             font-size: 16px;
+            color: var(--base1);
         }
         
         #wordlist-display {
             flex-grow: 1;
-            background-color: #fff;
-            color: #222;
-            border: 1px solid #ccc;
-            padding: 10px;
-            font-family: "Courier New", Courier, monospace;
-            font-size: 13px;
             resize: none;
-            outline: none;
-            border-radius: 4px;
         }
 
         .wordlist-actions {
@@ -151,27 +164,28 @@
 
         .wordlist-actions input[type="text"] {
             flex-grow: 1;
-            background-color: #fff;
-            color: #333;
-            border: 1px solid #ccc;
+            background-color: var(--base03);
+            color: var(--base1);
+            border: 1px solid var(--base01);
             padding: 5px 10px;
             border-radius: 4px;
             font-size: 14px;
         }
 
         .wordlist-actions button {
-            background-color: #007bff;
-            color: white;
+            background-color: var(--blue);
+            color: var(--base03);
             border: none;
             padding: 6px 12px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: bold;
             flex-shrink: 0;
         }
 
         .wordlist-actions button:hover {
-            background-color: #0056b3;
+            background-color: #379ad6;
         }
 
     </style>
@@ -202,8 +216,8 @@
             <input type="text" id="remove-input" placeholder="Remove character">
             <select id="remove-option">
                 <option value="all" selected>All Occurrences</option>
-                <option value="first">First Occurrence</option>
-                <option value="last">Last Occurrence</option>
+                <option value="first">From Start</option>
+                <option value="last">From End</option>
             </select>
             <button id="remove-btn" title="Remove Character(s)"><i class="fa-solid fa-scissors"></i></button>
         </div>
@@ -270,7 +284,6 @@
                 if (historyIndex < history.length - 1) {
                     history = history.slice(0, historyIndex + 1);
                 }
-                // Only save if the value has actually changed
                 if (history[historyIndex] !== mainEditor.value) {
                     history.push(mainEditor.value);
                     historyIndex++;
@@ -302,10 +315,9 @@
             });
             
             mainEditor.addEventListener('input', saveState);
-            updateUndoRedoButtons(); // Initial state
+            updateUndoRedoButtons();
 
             // --- Toolbar Logic ---
-            
             replaceBtn.addEventListener('click', performAction(() => {
                 if (findInput.value) {
                     mainEditor.value = mainEditor.value.replace(findInput.value, replaceInput.value);
@@ -328,11 +340,17 @@
                 const modifiedLines = lines.map(line => {
                     switch(option) {
                         case 'first':
-                            return line.replace(removeValue, '');
+                            // **FIXED LOGIC**: Only remove if the line STARTS WITH the value.
+                            if (line.startsWith(removeValue)) {
+                                return line.substring(removeValue.length);
+                            }
+                            return line; // Otherwise, return the line unchanged.
                         case 'last': {
-                            const lastIndex = line.lastIndexOf(removeValue);
-                            if (lastIndex === -1) return line;
-                            return line.substring(0, lastIndex) + line.substring(lastIndex + removeValue.length);
+                            // This logic correctly removes the character only if it's at the very end.
+                            if (line.endsWith(removeValue)) {
+                                return line.substring(0, line.length - removeValue.length);
+                            }
+                            return line; // Otherwise, return the line unchanged.
                         }
                         case 'all':
                         default:
