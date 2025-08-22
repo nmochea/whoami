@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Text Editor</title>
+    <!-- Font Awesome CDN for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Basic Setup */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            display: flex;
+            flex-direction: column; /* Stack toolbar and content vertically */
+            overflow: hidden; /* Prevent body from scrolling */
+        }
+
+        /* Toolbar Styling */
+        .toolbar {
+            background-color: #e0e0e0;
+            padding: 8px 12px;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0; /* Prevent the toolbar from shrinking */
+            white-space: nowrap; /* Ensure it stays on one line */
+            overflow-x: auto; /* Add horizontal scroll if content overflows */
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .toolbar input[type="text"], .toolbar button, .toolbar select {
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            height: 33px; /* Standard height for all elements */
+            box-sizing: border-box;
+        }
+
+        .toolbar button {
+            cursor: pointer;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            width: 35px;
+        }
+
+        .toolbar button:hover {
+            background-color: #dcdcdc;
+            border-color: #bbb;
+        }
+        
+        .toolbar button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        
+        .toolbar button i {
+            font-size: 16px;
+            color: #333;
+            width: 18px;
+            text-align: center;
+        }
+
+        .toolbar input[type="text"]::placeholder {
+            color: #888;
+        }
+        
+        .separator {
+            border-left: 1px solid #ccc;
+            height: 25px;
+            margin: 0 5px;
+        }
+
+        /* Main Content Area */
+        .content-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        #main-editor {
+            height: 60%;
+            background-color: #ffffff;
+            color: #222;
+            border: 1px solid #ccc;
+            padding: 15px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+            outline: none;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        /* Integrated Wordlist Section */
+        .wordlist-section {
+            height: 40%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 100px;
+        }
+
+        .wordlist-section h3 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        #wordlist-display {
+            flex-grow: 1;
+            background-color: #fff;
+            color: #222;
+            border: 1px solid #ccc;
+            padding: 10px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 13px;
+            resize: none;
+            outline: none;
+            border-radius: 4px;
+        }
+
+        .wordlist-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .wordlist-actions input[type="text"] {
+            flex-grow: 1;
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .wordlist-actions button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .wordlist-actions button:hover {
+            background-color: #0056b3;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <!-- Undo/Redo Tools -->
+        <div class="tool-group">
+            <button id="undo-btn" title="Undo"><i class="fa-solid fa-rotate-left"></i></button>
+            <button id="redo-btn" title="Redo"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+
+        <div class="separator"></div>
+
+        <!-- Find and Replace Tools -->
+        <div class="tool-group">
+            <input type="text" id="find-input" placeholder="Find">
+            <input type="text" id="replace-input" placeholder="Replace with">
+            <button id="replace-btn" title="Replace First"><i class="fa-solid fa-pen-to-square"></i></button>
+            <button id="replace-all-btn" title="Replace All"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+        </div>
+
+        <div class="separator"></div>
+
+        <!-- Remove Tools -->
+        <div class="tool-group">
+            <input type="text" id="remove-input" placeholder="Remove character">
+            <select id="remove-option">
+                <option value="all" selected>All Occurrences</option>
+                <option value="first">First Occurrence</option>
+                <option value="last">Last Occurrence</option>
+            </select>
+            <button id="remove-btn" title="Remove Character(s)"><i class="fa-solid fa-scissors"></i></button>
+        </div>
+        
+        <div class="separator"></div>
+
+        <!-- Add Prefix/Suffix Tools -->
+        <div class="tool-group">
+            <input type="text" id="add-prefix" placeholder="Prefix">
+            <input type="text" id="add-suffix" placeholder="Suffix">
+            <button id="add-affixes-btn" title="Add to Each Line"><i class="fa-solid fa-arrows-left-right-to-line"></i></button>
+        </div>
+    </div>
+
+    <div class="content-container">
+        <textarea id="main-editor" placeholder="Start typing here..."></textarea>
+        
+        <div class="wordlist-section">
+            <h3>Wordlist</h3>
+            <textarea id="wordlist-display" placeholder="Your wordlist..."></textarea>
+            <div class="wordlist-actions">
+                <input type="text" id="add-word-input" placeholder="Add a new word">
+                <button id="add-to-wordlist-btn">Add Word</button>
+                <button id="clear-wordlist-btn">Clear List</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Element Refs
+            const mainEditor = document.getElementById('main-editor');
+            const undoBtn = document.getElementById('undo-btn');
+            const redoBtn = document.getElementById('redo-btn');
+            
+            const findInput = document.getElementById('find-input');
+            const replaceInput = document.getElementById('replace-input');
+            const replaceBtn = document.getElementById('replace-btn');
+            const replaceAllBtn = document.getElementById('replace-all-btn');
+
+            const removeInput = document.getElementById('remove-input');
+            const removeOption = document.getElementById('remove-option');
+            const removeBtn = document.getElementById('remove-btn');
+
+            const addPrefix = document.getElementById('add-prefix');
+            const addSuffix = document.getElementById('add-suffix');
+            const addAffixesBtn = document.getElementById('add-affixes-btn');
+
+            const wordlistDisplay = document.getElementById('wordlist-display');
+            const addWordInput = document.getElementById('add-word-input');
+            const addToWordlistBtn = document.getElementById('add-to-wordlist-btn');
+            const clearWordlistBtn = document.getElementById('clear-wordlist-btn');
+            
+            // --- Undo/Redo Logic ---
+            let history = [mainEditor.value];
+            let historyIndex = 0;
+            
+            const updateUndoRedoButtons = () => {
+                undoBtn.disabled = historyIndex === 0;
+                redoBtn.disabled = historyIndex === history.length - 1;
+            };
+
+            const saveState = () => {
+                if (historyIndex < history.length - 1) {
+                    history = history.slice(0, historyIndex + 1);
+                }
+                // Only save if the value has actually changed
+                if (history[historyIndex] !== mainEditor.value) {
+                    history.push(mainEditor.value);
+                    historyIndex++;
+                    updateUndoRedoButtons();
+                }
+            };
+            
+            const performAction = (action) => {
+                return () => {
+                    action();
+                    saveState();
+                };
+            };
+
+            undoBtn.addEventListener('click', () => {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    mainEditor.value = history[historyIndex];
+                    updateUndoRedoButtons();
+                }
+            });
+
+            redoBtn.addEventListener('click', () => {
+                if (historyIndex < history.length - 1) {
+                    historyIndex++;
+                    mainEditor.value = history[historyIndex];
+                    updateUndoRedoButtons();
+                }
+            });
+            
+            mainEditor.addEventListener('input', saveState);
+            updateUndoRedoButtons(); // Initial state
+
+            // --- Toolbar Logic ---
+            
+            replaceBtn.addEventListener('click', performAction(() => {
+                if (findInput.value) {
+                    mainEditor.value = mainEditor.value.replace(findInput.value, replaceInput.value);
+                }
+            }));
+
+            replaceAllBtn.addEventListener('click', performAction(() => {
+                const findValue = findInput.value;
+                if (!findValue) return;
+                const regex = new RegExp(findValue.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+                mainEditor.value = mainEditor.value.replace(regex, replaceInput.value);
+            }));
+
+            removeBtn.addEventListener('click', performAction(() => {
+                const removeValue = removeInput.value;
+                if (!removeValue) return;
+                const option = removeOption.value;
+                
+                const lines = mainEditor.value.split('\n');
+                const modifiedLines = lines.map(line => {
+                    switch(option) {
+                        case 'first':
+                            return line.replace(removeValue, '');
+                        case 'last': {
+                            const lastIndex = line.lastIndexOf(removeValue);
+                            if (lastIndex === -1) return line;
+                            return line.substring(0, lastIndex) + line.substring(lastIndex + removeValue.length);
+                        }
+                        case 'all':
+                        default:
+                            const regex = new RegExp(removeValue.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+                            return line.replace(regex, '');
+                    }
+                });
+                mainEditor.value = modifiedLines.join('\n');
+            }));
+
+            addAffixesBtn.addEventListener('click', performAction(() => {
+                const prefix = addPrefix.value;
+                const suffix = addSuffix.value;
+                const lines = mainEditor.value.split('\n');
+                const modifiedLines = lines.map(line => (line.trim() !== '') ? prefix + line + suffix : line);
+                mainEditor.value = modifiedLines.join('\n');
+            }));
+            
+            // --- Wordlist Logic ---
+            addToWordlistBtn.addEventListener('click', () => {
+                const newWord = addWordInput.value.trim();
+                if (newWord) {
+                    wordlistDisplay.value += (wordlistDisplay.value ? '\n' : '') + newWord;
+                    addWordInput.value = '';
+                }
+            });
+
+            clearWordlistBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear the wordlist?')) {
+                    wordlistDisplay.value = '';
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>
