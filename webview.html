@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Desktop Webview Penetration Testing</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background-color: #f4f4f4; }
+        .container { max-width: 960px; margin: auto; padding: 20px; }
+        h1, h2 { color: #333; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+        .test-section { background-color: #fff; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 20px; padding: 15px; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin-right: 10px; margin-bottom: 10px; }
+        button:hover { background-color: #0056b3; }
+        #log { background-color: #222; color: #0f0; font-family: 'Courier New', Courier, monospace; padding: 15px; border-radius: 5px; height: 300px; overflow-y: scroll; white-space: pre-wrap; }
+        .log-entry { border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 5px; }
+        .log-success { color: #0f0; }
+        .log-fail { color: #f00; }
+        .log-info { color: #0ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Desktop Webview Penetration Testing</h1>
+        <div id="info-section" class="test-section">
+            <h2>Information Disclosure</h2>
+            <button onclick="getInfo()">Get Webview Info</button>
+            <button onclick="enumerateWindowObjects()">Enumerate Window Objects</button>
+        </div>
+
+        <div id="permissions-section" class="test-section">
+            <h2>Permissions Testing</h2>
+            <button onclick="requestCamera()">Test Camera Access</button>
+            <button onclick="requestMicrophone()">Test Microphone Access</button>
+            <button onclick="requestClipboardRead()">Test Clipboard Read</button>
+            <button onclick="requestPersistentStorage()">Test Persistent Storage</button>
+            <button onclick="requestGeolocation()">Test Geolocation</button>
+            <button onclick="requestNotifications()">Test Notifications</button>
+        </div>
+
+        <div id="bridge-section" class="test-section">
+            <h2>JavaScript Bridge Testing</h2>
+            <button onclick="probeCommonBridges()">Probe Common Bridge Names</button>
+            <p>The "Enumerate Window Objects" test above is also crucial for discovering custom bridge interfaces.</p>
+        </div>
+
+        <div id="file-access-section" class="test-section">
+            <h2>Local File Access (LFI) Testing</h2>
+            <button onclick="readFileFetch('/etc/passwd')">Read /etc/passwd (Linux/macOS)</button>
+            <button onclick="readFileFetch('C:/Windows/win.ini')">Read win.ini (Windows)</button>
+            <button onclick="readFileXHR('/etc/passwd')">Read /etc/passwd (XHR)</button>
+        </div>
+        
+        <div id="protocol-handler-section" class="test-section">
+            <h2>Custom Protocol Handler Testing</h2>
+            <p>These links test for custom protocol handlers that might execute local applications or scripts.</p>
+            <a href="customapp://test">Test customapp://</a><br>
+            <a href="anotherapp:data=123">Test anotherapp:</a>
+        </div>
+        
+        <div id="xss-section" class="test-section">
+            <h2>XSS Payload Test</h2>
+            <p>This script tag attempts a basic XSS attack. A successful attack will trigger an alert. This is especially dangerous if a JavaScript bridge is exposed.</p>
+            <script>
+                // A simple XSS test payload. If it runs, the environment may be vulnerable.
+                // In a real test, this would be injected, but here it's for demonstration.
+                // alert('XSS Payload Executed'); 
+            </script>
+        </div>
+
+        <h2>Test Log</h2>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        function logMessage(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // --- Information Disclosure ---
+        function getInfo() {
+            logMessage(`User Agent: ${navigator.userAgent}`, 'info');
+            logMessage(`Platform: ${navigator.platform}`, 'info');
+            logMessage(`Cookies Enabled: ${navigator.cookieEnabled}`, 'info');
+        }
+
+        function enumerateWindowObjects() {
+            logMessage('Enumerating window objects...', 'info');
+            for (const key in window) {
+                if (window.hasOwnProperty(key)) {
+                    logMessage(`Found window object: ${key}`);
+                }
+            }
+        }
+
+        // --- Permissions Testing ---
+        function requestCamera() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        logMessage('SUCCESS: Camera access granted without prompt.', 'log-success');
+                        stream.getTracks().forEach(track => track.stop());
+                    }).catch(err => logMessage(`FAIL: Camera access failed or was denied: ${err.message}`, 'log-fail'));
+            } else { logMessage('FAIL: getUserMedia API not supported.', 'log-fail'); }
+        }
+
+        function requestMicrophone() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        logMessage('SUCCESS: Microphone access granted without prompt.', 'log-success');
+                        stream.getTracks().forEach(track => track.stop());
+                    }).catch(err => logMessage(`FAIL: Microphone access failed or was denied: ${err.message}`, 'log-fail'));
+            } else { logMessage('FAIL: getUserMedia API not supported.', 'log-fail'); }
+        }
+
+        function requestClipboardRead() {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                navigator.clipboard.readText()
+                    .then(text => {
+                        logMessage(`SUCCESS: Clipboard access granted. Content: "${text.substring(0, 50)}..."`, 'log-success');
+                    }).catch(err => logMessage(`FAIL: Clipboard read failed or was denied: ${err.message}`, 'log-fail'));
+            } else { logMessage('FAIL: Clipboard API not supported.', 'log-fail'); }
+        }
+
+        function requestPersistentStorage() {
+            if (navigator.storage && navigator.storage.persist) {
+                navigator.storage.persist()
+                    .then(granted => {
+                        if (granted) {
+                            logMessage('SUCCESS: Persistent Storage access granted.', 'log-success');
+                        } else {
+                            logMessage('FAIL: Persistent Storage access denied.', 'log-fail');
+                        }
+                    });
+            } else { logMessage('FAIL: Storage API not supported.', 'log-fail'); }
+        }
+
+        function requestGeolocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => logMessage(`SUCCESS: Geolocation access granted. Lat: ${position.coords.latitude}`, 'log-success'),
+                    (error) => logMessage(`FAIL: Geolocation access denied: ${error.message}`, 'log-fail')
+                );
+            } else { logMessage('FAIL: Geolocation API not supported.', 'log-fail'); }
+        }
+
+        function requestNotifications() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        logMessage('SUCCESS: Notification permission granted.', 'log-success');
+                        new Notification('Test Notification', { body: 'If you see this, notifications are working.' });
+                    } else {
+                        logMessage(`FAIL: Notification permission was ${permission}.`, 'log-fail');
+                    }
+                });
+            } else { logMessage('FAIL: Notification API not supported.', 'log-fail'); }
+        }
+
+        // --- JavaScript Bridge Testing ---
+        function probeCommonBridges() {
+            const commonNames = ['external', 'Android', 'webkit', 'bridge', 'app'];
+            logMessage('Probing for common JS bridge names...', 'info');
+            commonNames.forEach(name => {
+                if (window[name]) {
+                    logMessage(`SUCCESS: Found potential JS bridge object: window.${name}`, 'log-success');
+                    console.log(window[name]); // Also log to console for interactive exploration
+                } else {
+                    logMessage(`FAIL: Did not find window.${name}`, 'log-fail');
+                }
+            });
+        }
+        
+        // --- Local File Access Testing ---
+        function readFileFetch(filePath) {
+            logMessage(`Attempting to read local file via fetch: file://${filePath}`, 'info');
+            fetch(`file://${filePath}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP status ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    logMessage(`SUCCESS: Read file content from ${filePath}:\n${data.substring(0, 200)}...`, 'log-success');
+                })
+                .catch(error => {
+                    logMessage(`FAIL: Could not read file ${filePath}. Error: ${error}`, 'log-fail');
+                });
+        }
+        
+        function readFileXHR(filePath) {
+            logMessage(`Attempting to read local file via XHR: file://${filePath}`, 'info');
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if (xhr.status === 200 || xhr.status === 0) { // status 0 for local files
+                        logMessage(`SUCCESS: Read file content from ${filePath}:\n${xhr.responseText.substring(0, 200)}...`, 'log-success');
+                    } else {
+                        logMessage(`FAIL: XHR request failed for ${filePath} with status ${xhr.status}`, 'log-fail');
+                    }
+                }
+            };
+            xhr.open('GET', `file://${filePath}`, true);
+            xhr.send();
+        }
+
+    </script>
+</body>
+</html>
