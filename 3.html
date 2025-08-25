@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Security Permissions Demonstration</title>
+    <title>Grant Access Security Permissions</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -34,7 +34,7 @@
     </style>
 </head>
 <body onload="initiateDemonstration();">
-    <h1>Demonstrating Direct Access to Security Permissions</h1>
+    <h1>Proof of Concept:</h1>
     
     <div class="container">
         <h3>Clipboard Data:</h3>
@@ -44,12 +44,6 @@
     <div class="container">
         <h3>Captured Image:</h3>
         <img id="capturedImage" class="hidden" alt="Captured image will be displayed here."/>
-    </div>
-    
-    <div class="container">
-        <h3>File Download (Environment Variable Test):</h3>
-        <p>This link tests for an environment variable expansion vulnerability. In a vulnerable application, the "Save As" dialog might open in the AppData folder. In a secure browser, it will treat the filename literally.</p>
-        <a href="." download="%LOCALAPPDATA%.dll">Click Me Right Click</a>
     </div>
 
     <div class="container">
