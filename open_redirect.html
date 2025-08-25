@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Redirect Advanced Tester</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #1a1b26;
+            --primary-color: #7aa2f7;
+            --secondary-color: #24283b;
+            --text-color: #c0caf5;
+            --border-color: #414868;
+            --success-color: #9ece6a;
+            --danger-color: #f7768e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            background-color: var(--secondary-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        header .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        header .logo svg {
+            width: 32px;
+            height: 32px;
+            color: var(--primary-color);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            flex-grow: 1;
+        }
+
+        .panel {
+            background-color: var(--secondary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .panel-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin: 0 0 1.25rem 0;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.65rem;
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.3);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 200px;
+        }
+        
+        #results-panel textarea {
+            flex-grow: 1;
+            font-family: monospace;
+            font-size: 0.9rem;
+            white-space: pre;
+            word-wrap: normal;
+            overflow-wrap: normal;
+        }
+
+        button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button svg {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .primary-btn {
+            background-color: var(--primary-color);
+            color: var(--secondary-color);
+        }
+
+        .primary-btn:hover {
+            background-color: #9fbff7;
+        }
+        
+        .secondary-btn {
+            background-color: var(--border-color);
+            color: var(--text-color);
+        }
+        
+        .secondary-btn:hover {
+             background-color: #515a7d;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-top: auto;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        #url-counter {
+            background-color: var(--bg-color);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background-color: var(--bg-color);
+            border-radius: 4px;
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            width: 100%;
+            height: 100%;
+            background-color: var(--success-color);
+            transition: width 0.3s ease-in-out;
+        }
+        
+        @media (min-width: 768px) {
+            .button-group {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-4.5 0V6.75A2.25 2.25 0 0115.75 4.5h1.5a2.25 2.25 0 012.25 2.25v1.5m-4.5 0h4.5m-4.5 0a2.25 2.25 0 012.25 2.25v1.5a2.25 2.25 0 01-2.25-2.25h-1.5a2.25 2.25 0 01-2.25-2.25v-1.5a2.25 2.25 0 012.25-2.25z" />
+                </svg>
+                <h1>Open Redirect Advanced Tester</h1>
+            </div>
+        </header>
+
+        <main>
+            <div class="panel">
+                <h2 class="panel-title">Configuration</h2>
+                <div class="form-group">
+                    <label for="url">Target URL</label>
+                    <input type="text" id="url" name="url" value="https://m.lbank.com/auth?from=https://lbank.com.evil.com">
+                </div>
+                <div class="form-group">
+                    <label for="paramToReplace">Parameter to Replace</label>
+                    <input type="text" id="paramToReplace" name="paramToReplace" value="from">
+                </div>
+                <div class="form-group" style="flex-grow: 1; display: flex; flex-direction: column;">
+                    <label for="params">Payload List (one per line)</label>
+                    <textarea id="params" name="params" style="flex-grow: 1;">file
+AuthState
+URL
+_url
+callback
+checkout
+checkout_url
+content
+continue
+continueTo
+counturl
+data
+dest
+dest_url
+destination
+dir
+document
+domain
+done
+download
+feed
+file
+file_name
+file_url
+folder
+folder_url
+forward
+from_url
+go
+goto
+host
+html
+http
+https
+image
+image_src
+image_url
+imageurl
+img
+img_url
+include
+langTo
+load_file
+load_url
+login_to
+login_url
+logout
+media
+navigation
+next
+next_page
+open
+out
+page
+page_url
+pageurl
+path
+picture
+port
+proxy
+r
+r2
+redir
+redirect
+redirectUri
+redirectUrl
+redirect_to
+redirect_uri
+redirect_url
+reference
+referrer
+req
+request
+ret
+retUrl
+return
+returnTo
+return_path
+return_to
+return_url
+rt
+rurl
+show
+site
+source
+src
+target
+to
+u
+uri
+url
+val
+validate
+view
+window
+back
+cgi
+follow
+home
+jump
+link
+location
+menu
+move
+nav
+orig_url
+out_url
+query
+auth
+callback_url
+confirm_url
+destination_url
+domain_url
+entry
+exit
+forward_url
+go_to
+goto_url
+home_url
+image_link
+load
+logout_url
+nav_to
+origin
+page_link
+redirect_link
+ref
+referrer_url
+return_link
+return_to_url
+source_url
+target_url
+to_url
+validate_url
+DirectTo
+relay
+from</textarea>
+                </div>
+                <div class="button-group">
+                    <button class="primary-btn" onclick="generateUrls()">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.553L16.5 21.75l-.398-1.197a3.375 3.375 0 00-2.456-2.456L12.75 18l1.197-.398a3.375 3.375 0 002.456-2.456L16.5 14.25l.398 1.197a3.375 3.375 0 002.456 2.456L20.25 18l-1.197.398a3.375 3.375 0 00-2.456 2.456z" />
+                        </svg>
+                        Generate URLs
+                    </button>
+                    <button class="secondary-btn" onclick="openUrls()">
+                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                         </svg>
+                        Open Next 10
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel" id="results-panel">
+                 <div class="results-header">
+                    <h2 class="panel-title" style="margin: 0; border: none;">Generated URLs</h2>
+                    <span id="url-counter">0 / 0</span>
+                </div>
+                <textarea id="generatedUrls" readonly></textarea>
+                <div class="progress-bar-container">
+                    <div id="progress-bar"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let generatedUrlList = [];
+        let totalUrls = 0;
+
+        function updateCounterAndProgress() {
+            const remaining = generatedUrlList.length;
+            document.getElementById('url-counter').textContent = `${remaining} / ${totalUrls}`;
+
+            const progress = totalUrls > 0 ? (remaining / totalUrls) * 100 : 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+        }
+
+        function generateUrls() {
+            const url = document.getElementById('url').value;
+            const paramToReplace = document.getElementById('paramToReplace').value.trim();
+            const paramsText = document.getElementById('params').value;
+            const params = paramsText.split('\n').filter(p => p.trim() !== '');
+            const generatedUrlsTextArea = document.getElementById('generatedUrls');
+            generatedUrlList = [];
+
+            if (!url || !paramToReplace) {
+                generatedUrlsTextArea.value = "ERROR: Please provide a Target URL and the Parameter to Replace.";
+                return;
+            }
+
+            try {
+                const urlObject = new URL(url);
+                const baseUrl = urlObject.origin + urlObject.pathname;
+                const searchParams = new URLSearchParams(urlObject.search);
+
+                if (!searchParams.has(paramToReplace)) {
+                    generatedUrlsTextArea.value = `ERROR: The parameter "${paramToReplace}" was not found in the provided URL.`;
+                    return;
+                }
+                
+                const valueToKeep = searchParams.get(paramToReplace);
+                searchParams.delete(paramToReplace);
+
+                params.forEach(param => {
+                    const newSearchParams = new URLSearchParams(searchParams);
+                    newSearchParams.set(param.trim(), valueToKeep);
+                    const newUrl = `${baseUrl}?${newSearchParams.toString()}`;
+                    generatedUrlList.push(newUrl);
+                });
+
+                totalUrls = generatedUrlList.length;
+                generatedUrlsTextArea.value = generatedUrlList.join('\n');
+                updateCounterAndProgress();
+
+            } catch (error) {
+                generatedUrlsTextArea.value = "ERROR: Invalid URL format. Please enter a full and valid URL.";
+                totalUrls = 0;
+                updateCounterAndProgress();
+            }
+        }
+
+        function openUrls() {
+            const urlsToOpen = generatedUrlList.slice(0, 10);
+            if (urlsToOpen.length === 0) {
+                alert("No more URLs to open. Generate a new list.");
+                return;
+            }
+
+            urlsToOpen.forEach(url => {
+                window.open(url, '_blank');
+            });
+
+            generatedUrlList.splice(0, 10);
+            document.getElementById('generatedUrls').value = generatedUrlList.join('\n');
+            updateCounterAndProgress();
+        }
+
+        // Initial state
+        updateCounterAndProgress();
+    </script>
+
+</body>
+</html>
