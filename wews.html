@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ada Auth Interceptor</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      background: #f4f4f4;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 { color: #1a73e8; }
+    .status {
+      padding: 10px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-family: monospace;
+    }
+    .success { background: #e6f4ea; color: #137333; }
+    .error { background: #fce8e6; color: #c5221f; }
+    .info { background: #e8f0fe; color: #185abc; }
+    pre {
+      background: #f1f1f1;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+    button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #1557b0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Ada Auth Token Interceptor</h1>
+    <p>Load this in your Android WebView to capture the JWT from <code>AdaAndroid.requestToken()</code></p>
+
+    <div id="status" class="status info">Initializing...</div>
+    <pre id="output">Waiting for token request...</pre>
+
+    <button onclick="triggerAdaAuth()">Simulate Ada Auth Request</button>
+    <p><small>Only works if the real Ada embed is loaded or bridge is active.</small></p>
+  </div>
+
+  <script>
+    // Global log
+    const output = document.getElementById('output');
+    const status = document.getElementById('status');
+
+    function log(msg, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      output.textContent += `[${timestamp}] ${msg}\n`;
+      output.scrollTop = output.scrollHeight;
+      status.textContent = msg;
+      status.className = `status ${type}`;
+    }
+
+    // Step 1: Check if we're in Android WebView
+    function isAndroidWebView() {
+      return window.AdaAndroid !== undefined || 
+             /Android/.test(navigator.userAgent) && 
+             'JavaEnabled' in navigator === false;
+    }
+
+    // Step 2: Intercept AdaAndroid.requestToken()
+    function interceptAdaAndroid() {
+      if (!window.AdaAndroid) {
+        log("AdaAndroid not found. Is the native interface injected?", "error");
+        return false;
+      }
+
+      const original = window.AdaAndroid.requestToken;
+      let tokenCaptured = null;
+
+      // Override the method
+      window.AdaAndroid.requestToken = function() {
+        log("INTERCEPTED: requestToken() called!", "success");
+
+        // Call original
+        const token = original.apply(this, arguments);
+
+        if (token && token !== 'null' && token !== 'undefined') {
+          tokenCaptured = token;
+          log(`TOKEN CAPTURED: ${token.substring(0, 20)}... (${token.length} chars)`, "success");
+          displayToken(token);
+        } else {
+          log("Token is null/undefined", "info");
+        }
+
+        return token;
+      };
+
+      log("Interceptor installed on AdaAndroid.requestToken()", "success");
+      return true;
+    }
+
+    // Step 3: Display full token
+    function displayToken(token) {
+      const tokenBox = document.createElement('div');
+      tokenBox.innerHTML = `
+        <h3>JWT Token (Captured)</h3>
+        <textarea style="width:100%; height:120px; font-family:monospace; font-size:12px;">${token}</textarea>
+        <p><strong>Header:</strong> ${parseJwtHeader(token)}</p>
+        <p><strong>Payload:</strong> ${parseJwtPayload(token)}</p>
+      `;
+      document.querySelector('.container').appendChild(tokenBox);
+    }
+
+    // JWT Helpers
+    function parseJwtHeader(token) {
+      try {
+        const base64 = token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.stringify(JSON.parse(atob(base64)), null, 2);
+      } catch { return "Invalid"; }
+    }
+
+    function parseJwtPayload(token) {
+      try {
+        const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(atob(base64));
+        return JSON.stringify(payload, null, 2);
+      } catch { return "Invalid"; }
+    }
+
+    // Step 4: Simulate Ada calling zdChatterAuthCallback
+    window.triggerAdaAuth = function() {
+      if (typeof zdChatterAuthCallback === 'function') {
+        log("Triggering zdChatterAuthCallback...", "info");
+        zdChatterAuthCallback((token) => {
+          log(`Ada received token: ${token ? token.substring(0, 15) + '...' : 'null'}`, "info");
+        });
+      } else {
+        log("zdChatterAuthCallback not available. Load real Ada embed first.", "error");
+      }
+    };
+
+    // Step 5: Auto-init
+    window.addEventListener('load', () => {
+      log("Page loaded. Scanning environment...");
+
+      if (isAndroidWebView()) {
+        log("Android WebView detected", "info");
+      } else {
+        log("Not in Android WebView (or interface not ready)", "info");
+      }
+
+      // Wait a bit for AdaAndroid to be injected
+      setTimeout(() => {
+        if (interceptAdaAndroid()) {
+          log("Ready to capture token on next auth request", "success");
+        }
+      }, 1000);
+    });
+
+    // Optional: Auto-inject fake AdaAndroid if missing (for testing in browser)
+    if (!window.AdaAndroid && location.protocol === 'file:') {
+      log("Injecting mock AdaAndroid for browser testing...", "info");
+      window.AdaAndroid = {
+        requestToken: () => "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMTIzIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjk5OTk5OTk5fQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+      };
+      setTimeout(interceptAdaAndroid, 500);
+    }
+  </script>
+</body>
+</html>
