@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Device Info (JSON)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            padding: 12px 20px;
+            margin: 10px 0;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .error {
+            color: #e06c75;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Android Device & Apps Information (JSON)</h1>
+    <p>This page retrieves JSON data from the Android native side via JavaScript interface and displays it formatted.</p>
+
+    <div class="section">
+        <button onclick="showDeviceInfo()">Get Device Info</button>
+        <pre id="deviceinfo">Click the button to load device information...</pre>
+    </div>
+
+    <div class="section">
+        <button onclick="showInstalledApps()">Get Installed Apps</button>
+        <pre id="apps">Click the button to load installed apps list...</pre>
+    </div>
+
+    <script>
+        function formatJson(rawData) {
+            try {
+                // Try to parse as JSON
+                const jsonObj = JSON.parse(rawData);
+                // Pretty print with 2-space indentation
+                return JSON.stringify(jsonObj, null, 2);
+            } catch (e) {
+                // If not valid JSON, return original string with note
+                return "[Not valid JSON]\n" + rawData;
+            }
+        }
+
+        function showDeviceInfo() {
+            const outputElement = document.getElementById('deviceinfo');
+            try {
+                const rawInfo = window.android.getAppDeviceInfo();
+                if (rawInfo === undefined || rawInfo === null) {
+                    outputElement.textContent = "No data returned (method may not be available).";
+                    return;
+                }
+                outputElement.textContent = formatJson(rawInfo);
+            } catch (e) {
+                outputElement.textContent = "Error: " + e.message + 
+                    "\n\nMake sure the 'android' JavaScript interface is properly injected in the WebView.";
+            }
+        }
+
+        function showInstalledApps() {
+            const outputElement = document.getElementById('apps');
+            try {
+                const rawApps = window.android.getInstalledApp();
+                if (rawApps === undefined || rawApps === null) {
+                    outputElement.textContent = "No data returned (method may not be available).";
+                    return;
+                }
+                outputElement.textContent = formatJson(rawApps);
+            } catch (e) {
+                outputElement.textContent = "Error: " + e.message + 
+                    "\n\nMake sure the 'android' JavaScript interface is properly injected in the WebView.";
+            }
+        }
+    </script>
+
+</body>
+</html>
