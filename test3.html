@@ -22,14 +22,16 @@
   function showInstalledApps() {
     var apps = window.android.getInstalledApp();
     try {
-      var appList = JSON.parse(apps); // parse JSON array
-      var formattedApps = "";
-      appList.forEach(function(app, index) {
-        formattedApps += (index + 1) + ". " + app.name + " (" + app.package + ")<br>";
-      });
-      document.getElementById('apps').innerHTML = formattedApps;
+      var obj = JSON.parse(apps);
+      var formattedInfo = "";
+      for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          formattedInfo += key + ": " + obj[key] + "<br>";
+        }
+      }
+      document.getElementById('apps').innerHTML = formattedInfo;
     } catch (e) {
-      // fallback if not JSON
+      // fallback if it's not JSON
       document.getElementById('apps').innerText = apps;
     }
   }
