@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+  function showDeviceInfo() {
+    var info = window.android.getAppDeviceInfo();
+    document.getElementById('deviceinfo').innerText = info;
+  }
+  function showInstalledApps() {
+    var apps = window.android.getInstalledApp();
+    document.getElementById('apps').innerText = apps;
+  }
+</script>
+<button onclick="showDeviceInfo()">Get Device Info</button>
+<pre id="deviceinfo"></pre>
+<button onclick="showInstalledApps()">Get Installed Apps</button>
+<pre id="apps"></pre>
+</body>
+</html>
