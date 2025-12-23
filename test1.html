@@ -4,15 +4,22 @@
 <script>
   function showDeviceInfo() {
     var info = window.android.getAppDeviceInfo();
-    document.getElementById('deviceinfo').innerText = info;
+    // Split by line or comma, then join with <br>
+    var formattedInfo = info.split(/\n|,/).join('<br>');
+    document.getElementById('deviceinfo').innerHTML = formattedInfo;
   }
+
   function showInstalledApps() {
     var apps = window.android.getInstalledApp();
-    document.getElementById('apps').innerText = apps;
+    // Split by line or comma, then join with <br>
+    var formattedApps = apps.split(/\n|,/).join('<br>');
+    document.getElementById('apps').innerHTML = formattedApps;
   }
 </script>
+
 <button onclick="showDeviceInfo()">Get Device Info</button>
 <pre id="deviceinfo"></pre>
+
 <button onclick="showInstalledApps()">Get Installed Apps</button>
 <pre id="apps"></pre>
 </body>
