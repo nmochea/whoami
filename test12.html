@@ -1,0 +1,78 @@
+
+\newline<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; padding:8px; font-family:monospace; white-space:pre-wrap; word-break:break-word; max-width:100vw;">
+    <pre id="out"></pre>
+    <script>
+        (function () {
+            var out = document.getElementById("out");
+            function append(line) {
+                out.textContent += line + "\n";
+            }
+
+            var bridge = window.nativeBridge;
+            append("nativeBridge present: " + (bridge ? "yes" : "no"));
+
+            if (bridge) {
+                try {
+                    var names = [];
+                    try {
+                        names = Object.getOwnPropertyNames(bridge);
+                    } catch (e) {
+                        names = [];
+                    }
+                    append("\nnativeBridge properties/methods:");
+                    append(names.length ? names.join("\n") : "(none enumerable)");
+
+                    append("\ncallNative type: " + (typeof bridge.callNative));
+                } catch (e) {
+                    append("\n[Error inspecting nativeBridge] " + String(e));
+                }
+            }
+
+            append("\nInvoking callNative for getBaseInfo and getUserInfo...\n");
+
+            window.cb = function(methodOrResult, maybeResult) {
+                var methodName, result;
+                if (typeof maybeResult === "undefined") {
+                    // Signature: cb(result)
+                    methodName = "result";
+                    result = methodOrResult;
+                } else {
+                    // Signature: cb(method, result)
+                    methodName = methodOrResult;
+                    result = maybeResult;
+                }
+
+                // Normalize to printable string
+                var printable;
+                try {
+                    if (typeof result === "string") {
+                        printable = result;
+                    } else {
+                        printable = JSON.stringify(result, null, 2);
+                    }
+                } catch (e) {
+                    printable = String(result);
+                }
+
+                append("[" + methodName + "]\n" + printable + "\n");
+            };
+
+            // Perform the native calls (results should flow back to window.cb)
+            try {
+                if (bridge && typeof bridge.callNative === "function") {
+                    bridge.callNative("getBaseInfo", "cb", "{}");
+                    bridge.callNative("getUserInfo", "cb", "{}");
+                } else {
+                    append("[Error] nativeBridge.callNative is not available.");
+                }
+            } catch (e) {
+                append("[Error calling nativeBridge] " + String(e));
+            }
+        })();
+    </script>
+</body>
+</html>
