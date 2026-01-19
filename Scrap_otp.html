@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numeric Paste & Copy Tool</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f7f6;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h2 { color: #333; margin-top: 0; font-size: 1.2rem; }
+
+        .textarea-wrapper {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            resize: none;
+            box-sizing: border-box;
+            font-size: 18px;
+            letter-spacing: 1px;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #4A90E2;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            display: flex;
+            align-items: center;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .paste-btn { background: #4A90E2; color: white; }
+        .paste-btn:hover { background: #357ABD; }
+
+        .copy-btn { background: #2ecc71; color: white; }
+        .copy-btn:hover { background: #27ae60; }
+
+        .clear-btn { background: #e74c3c; color: white; }
+        .clear-btn:hover { background: #c0392b; }
+
+        .material-icons { margin-right: 6px; font-size: 18px; }
+
+        /* Small animation for button feedback */
+        .icon-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Numeric Extractor</h2>
+    <div class="textarea-wrapper">
+        <textarea id="numberInput" placeholder="Paste mixed text here..."></textarea>
+    </div>
+    
+    <div class="controls">
+        <div class="button-group">
+            <button class="icon-btn paste-btn" onclick="triggerPaste()" title="Paste from clipboard">
+                <span class="material-icons">content_paste</span> Paste
+            </button>
+            <button class="icon-btn copy-btn" onclick="copyToClipboard()" id="copyBtn">
+                <span class="material-icons">content_copy</span> Copy
+            </button>
+        </div>
+        
+        <button class="icon-btn clear-btn" onclick="clearText()">
+            <span class="material-icons">delete_sweep</span> Clear
+        </button>
+    </div>
+</div>
+
+<script>
+    const textArea = document.getElementById('numberInput');
+    const copyBtn = document.getElementById('copyBtn');
+
+    // Filter logic: Only allow digits to be pasted
+    textArea.addEventListener('paste', (e) => {
+        e.preventDefault();
+        let paste = (e.clipboardData || window.clipboardData).getData('text');
+        const numericData = paste.replace(/[^0-9]/g, '');
+        
+        const start = textArea.selectionStart;
+        const end = textArea.selectionEnd;
+        const text = textArea.value;
+        
+        textArea.value = text.slice(0, start) + numericData + text.slice(end);
+        textArea.selectionStart = textArea.selectionEnd = start + numericData.length;
+    });
+
+    // Copy to clipboard logic
+    async function copyToClipboard() {
+        if (!textArea.value) return;
+        
+        try {
+            await navigator.clipboard.writeText(textArea.value);
+            
+            // Visual feedback
+            const originalContent = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<span class="material-icons">done</span> Copied!';
+            copyBtn.style.background = '#27ae60';
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalContent;
+                copyBtn.style.background = '#2ecc71';
+            }, 2000);
+            
+        } catch (err) {
+            console.error('Failed to copy: ', err);
+        }
+    }
+
+    // Manual Paste Trigger
+    async function triggerPaste() {
+        try {
+            const text = await navigator.clipboard.readText();
+            const numericData = text.replace(/[^0-9]/g, '');
+            textArea.value += numericData;
+        } catch (err) {
+            alert("For security, please use Ctrl+V / Cmd+V directly in the text area.");
+        }
+    }
+
+    function clearText() {
+        textArea.value = '';
+        textArea.focus();
+    }
+</script>
+
+</body>
+</html>
