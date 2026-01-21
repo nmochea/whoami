@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Numeric Extractor & Generator</title>
+    <title>6-Digit Unique Generator</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         body {
@@ -22,34 +22,37 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 600px;
+            max-width: 550px;
         }
 
         h2 { margin-top: 0; color: #1c1e21; font-size: 1.25rem; }
 
         textarea {
             width: 100%;
-            height: 150px;
+            height: 120px;
             padding: 15px;
             border: 2px solid #ddd;
             border-radius: 8px;
             resize: none;
             box-sizing: border-box;
-            font-size: 16px;
+            font-size: 22px; /* Larger font for the 6-digit ID */
+            font-weight: bold;
+            text-align: center;
             margin-bottom: 1rem;
             outline: none;
+            display: flex;
+            align-items: center;
         }
 
         textarea:focus { border-color: #1877f2; }
 
         .controls {
             display: flex;
-            flex-wrap: wrap;
             justify-content: space-between;
             gap: 10px;
         }
 
-        .main-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .main-actions { display: flex; gap: 10px; }
 
         .btn {
             display: flex;
@@ -60,11 +63,11 @@
             cursor: pointer;
             font-weight: 600;
             color: white;
-            transition: transform 0.1s, background-color 0.2s;
-            min-width: 110px;
+            transition: all 0.1s;
+            min-width: 115px;
         }
 
-        .btn:active { transform: translateY(1px); }
+        .btn:active { transform: scale(0.98); }
 
         #btn-generate { background-color: #8e44ad; }
         #btn-paste { background-color: #1877f2; }
@@ -78,13 +81,13 @@
 <body>
 
 <div class="container">
-    <h2>Numeric Toolset</h2>
-    <textarea id="main-textarea" placeholder="Paste text or generate unique IDs..."></textarea>
+    <h2>ID Generator & Extractor</h2>
+    <textarea id="main-textarea" placeholder="Click Generate or Paste Numbers..."></textarea>
     
     <div class="controls">
         <div class="main-actions">
             <button id="btn-generate" class="btn">
-                <span class="material-icons">casino</span>
+                <span class="material-icons">refresh</span>
                 <span class="btn-text">Generate</span>
             </button>
             <button id="btn-paste" class="btn">
@@ -106,67 +109,55 @@
 
 <script>
     const inputArea = document.getElementById('main-textarea');
-    const generatedHistory = new Set(); // Store unique IDs to prevent repetition
+    const usedIds = new Set(); // Prevents repetition
 
     function provideFeedback(buttonId, temporaryText, originalText) {
         const textSpan = document.querySelector(`#${buttonId} .btn-text`);
         textSpan.textContent = temporaryText;
-        setTimeout(() => {
-            textSpan.textContent = originalText;
-        }, 1500);
+        setTimeout(() => textSpan.textContent = originalText, 1200);
     }
 
-    // --- Generation Logic ---
+    // --- Generate 6-Digit Name + Number ---
     document.getElementById('btn-generate').addEventListener('click', () => {
-        let uniqueFound = false;
-        let newId = "";
-        let attempts = 0;
+        // Clear first as requested
+        inputArea.value = '';
+        
+        let uniqueId = "";
+        let isUnique = false;
+        let safetyBreak = 0;
 
-        // Try to generate a unique combination (User-XXX)
-        while (!uniqueFound && attempts < 1000) {
-            const randomNum = Math.floor(Math.random() * 1000);
-            newId = `User-${randomNum}`;
-            
-            if (!generatedHistory.has(newId)) {
-                generatedHistory.add(newId);
-                uniqueFound = true;
+        while (!isUnique && safetyBreak < 5000) {
+            // Generates a random 6-digit number (100000 to 999999)
+            const random6Digit = Math.floor(100000 + Math.random() * 900000);
+            uniqueId = `CfMicroxsploi${random6Digit}`;
+
+            if (!usedIds.has(uniqueId)) {
+                usedIds.add(uniqueId);
+                isUnique = true;
             }
-            attempts++;
+            safetyBreak++;
         }
 
-        if (uniqueFound) {
-            // Add newline if box isn't empty
-            const prefix = inputArea.value ? "\n" : "";
-            inputArea.value += prefix + newId;
-            inputArea.scrollTop = inputArea.scrollHeight; // Auto-scroll to bottom
-            provideFeedback('btn-generate', 'Generated!', 'Generate');
-        } else {
-            alert("Maximum unique IDs reached for this range.");
-        }
+        inputArea.value = uniqueId;
+        provideFeedback('btn-generate', 'Generated!', 'Generate');
     });
 
-    // --- Paste Logic (Numbers Only) ---
+    // --- Filtered Paste Logic ---
     inputArea.addEventListener('paste', (e) => {
         e.preventDefault();
         const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
         const numericOnly = clipboardData.replace(/\D/g, ''); 
-        
-        const start = inputArea.selectionStart;
-        const end = inputArea.selectionEnd;
-        inputArea.value = inputArea.value.slice(0, start) + numericOnly + inputArea.value.slice(end);
-        
-        inputArea.selectionStart = inputArea.selectionEnd = start + numericOnly.length;
+        inputArea.value = numericOnly; // Clears and replaces with just the numbers
         provideFeedback('btn-paste', 'Pasted!', 'Paste');
     });
 
     document.getElementById('btn-paste').addEventListener('click', async () => {
         try {
             const text = await navigator.clipboard.readText();
-            const numericOnly = text.replace(/\D/g, '');
-            inputArea.value += (inputArea.value ? "\n" : "") + numericOnly;
+            inputArea.value = text.replace(/\D/g, '');
             provideFeedback('btn-paste', 'Pasted!', 'Paste');
         } catch (err) {
-            alert("Use Ctrl+V to paste.");
+            alert("Please use Ctrl+V to paste.");
         }
     });
 
@@ -177,14 +168,13 @@
             await navigator.clipboard.writeText(inputArea.value);
             provideFeedback('btn-copy', 'Copied!', 'Copy');
         } catch (err) {
-            console.error('Copy failed', err);
+            console.error(err);
         }
     });
 
     // --- Clear Logic ---
     document.getElementById('btn-clear').addEventListener('click', () => {
         inputArea.value = '';
-        generatedHistory.clear(); // Optional: Reset history on clear
         inputArea.focus();
         provideFeedback('btn-clear', 'Cleared!', 'Clear');
     });
