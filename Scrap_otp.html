@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Numeric Extractor Pro</title>
+    <title>Numeric Extractor & Generator</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         body {
@@ -22,7 +22,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 500px;
+            max-width: 600px;
         }
 
         h2 { margin-top: 0; color: #1c1e21; font-size: 1.25rem; }
@@ -35,7 +35,7 @@
             border-radius: 8px;
             resize: none;
             box-sizing: border-box;
-            font-size: 18px;
+            font-size: 16px;
             margin-bottom: 1rem;
             outline: none;
         }
@@ -44,11 +44,12 @@
 
         .controls {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             gap: 10px;
         }
 
-        .main-actions { display: flex; gap: 10px; }
+        .main-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
         .btn {
             display: flex;
@@ -60,28 +61,32 @@
             font-weight: 600;
             color: white;
             transition: transform 0.1s, background-color 0.2s;
-            min-width: 100px; /* Prevents button jumping when text changes */
+            min-width: 110px;
         }
 
         .btn:active { transform: translateY(1px); }
 
+        #btn-generate { background-color: #8e44ad; }
         #btn-paste { background-color: #1877f2; }
         #btn-copy { background-color: #42b72a; }
         #btn-clear { background-color: #f02849; }
 
         .material-icons { font-size: 20px; margin-right: 8px; }
-        
         .btn-text { font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Numeric Extractor</h2>
-    <textarea id="main-textarea" placeholder="Paste content here..."></textarea>
+    <h2>Numeric Toolset</h2>
+    <textarea id="main-textarea" placeholder="Paste text or generate unique IDs..."></textarea>
     
     <div class="controls">
         <div class="main-actions">
+            <button id="btn-generate" class="btn">
+                <span class="material-icons">casino</span>
+                <span class="btn-text">Generate</span>
+            </button>
             <button id="btn-paste" class="btn">
                 <span class="material-icons">content_paste</span>
                 <span class="btn-text">Paste</span>
@@ -101,8 +106,8 @@
 
 <script>
     const inputArea = document.getElementById('main-textarea');
-    
-    // Helper function to handle text feedback without changing icons
+    const generatedHistory = new Set(); // Store unique IDs to prevent repetition
+
     function provideFeedback(buttonId, temporaryText, originalText) {
         const textSpan = document.querySelector(`#${buttonId} .btn-text`);
         textSpan.textContent = temporaryText;
@@ -111,7 +116,36 @@
         }, 1500);
     }
 
-    // Filter logic for direct keyboard paste
+    // --- Generation Logic ---
+    document.getElementById('btn-generate').addEventListener('click', () => {
+        let uniqueFound = false;
+        let newId = "";
+        let attempts = 0;
+
+        // Try to generate a unique combination (User-XXX)
+        while (!uniqueFound && attempts < 1000) {
+            const randomNum = Math.floor(Math.random() * 1000);
+            newId = `User-${randomNum}`;
+            
+            if (!generatedHistory.has(newId)) {
+                generatedHistory.add(newId);
+                uniqueFound = true;
+            }
+            attempts++;
+        }
+
+        if (uniqueFound) {
+            // Add newline if box isn't empty
+            const prefix = inputArea.value ? "\n" : "";
+            inputArea.value += prefix + newId;
+            inputArea.scrollTop = inputArea.scrollHeight; // Auto-scroll to bottom
+            provideFeedback('btn-generate', 'Generated!', 'Generate');
+        } else {
+            alert("Maximum unique IDs reached for this range.");
+        }
+    });
+
+    // --- Paste Logic (Numbers Only) ---
     inputArea.addEventListener('paste', (e) => {
         e.preventDefault();
         const clipboardData = (e.clipboardData || window.clipboardData).getData('text');
@@ -125,19 +159,18 @@
         provideFeedback('btn-paste', 'Pasted!', 'Paste');
     });
 
-    // Paste Button Click
     document.getElementById('btn-paste').addEventListener('click', async () => {
         try {
             const text = await navigator.clipboard.readText();
             const numericOnly = text.replace(/\D/g, '');
-            inputArea.value += numericOnly;
+            inputArea.value += (inputArea.value ? "\n" : "") + numericOnly;
             provideFeedback('btn-paste', 'Pasted!', 'Paste');
         } catch (err) {
-            alert("Use Ctrl+V / Cmd+V to paste.");
+            alert("Use Ctrl+V to paste.");
         }
     });
 
-    // Copy Button Click
+    // --- Copy Logic ---
     document.getElementById('btn-copy').addEventListener('click', async () => {
         if (!inputArea.value) return;
         try {
@@ -148,9 +181,10 @@
         }
     });
 
-    // Clear Button Click
+    // --- Clear Logic ---
     document.getElementById('btn-clear').addEventListener('click', () => {
         inputArea.value = '';
+        generatedHistory.clear(); // Optional: Reset history on clear
         inputArea.focus();
         provideFeedback('btn-clear', 'Cleared!', 'Clear');
     });
