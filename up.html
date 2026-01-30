@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Focused Bridge Probe</title>
+  <style>
+    body { font-family: sans-serif; padding: 16px; }
+    h1 { font-size: 22px; margin: 0 0 12px; }
+    button { font-size: 18px; padding: 10px 14px; margin: 6px 6px 6px 0; }
+    pre { white-space: pre-wrap; background: #f5f5f5; padding: 12px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+<h1>Focused Bridge Probe</h1>
+<button onclick="run()">Run</button>
+<pre id="o">Ready.</pre>
+
+<script>
+const o = document.getElementById('o');
+function log(s){ o.textContent += (o.textContent.endsWith('\n')?'':'\n') + s; }
+
+function showType(label, v){
+  let t;
+  try { t = typeof v; } catch(e){ t = 'ERR:'+e; }
+  log(label + ' typeof=' + t);
+}
+
+function showFunc(label, fn){
+  try { log(label + ' = ' + String(fn)); }
+  catch(e){ log(label + ' = ERR:' + e); }
+}
+
+function call0(label, fn){
+  try {
+    const r = fn();
+    const s = (r===null||r===undefined) ? String(r) : String(r);
+    log(label + '() => ' + s + ' (len=' + s.length + ')');
+    return r;
+  } catch(e) {
+    log(label + '() => ERR: ' + e);
+    return null;
+  }
+}
+
+function call1(label, fn, a){
+  try {
+    const r = fn(a);
+    const s = (r===null||r===undefined) ? String(r) : String(r);
+    log(label + '(' + JSON.stringify(a) + ') => ' + s + ' (len=' + s.length + ')');
+    return r;
+  } catch(e) {
+    log(label + '(' + JSON.stringify(a) + ') => ERR: ' + e);
+    return null;
+  }
+}
+
+function run(){
+  o.textContent = '';
+  log('location=' + location.href);
+
+  // Objects
+  showType('hicareJsInterface', window.hicareJsInterface);
+  showType('integrationJsInterfaceWebview', window.integrationJsInterfaceWebview);
+  showType('memberJSObject', window.memberJSObject);
+  showType('myHonorH5JsInterface', window.myHonorH5JsInterface);
+  showType('myHonorInterfaceOversea', window.myHonorInterfaceOversea);
+
+  log('--- hicareJsInterface probes ---');
+  if (window.hicareJsInterface) {
+    showFunc('hicare.getSiteInfo', window.hicareJsInterface.getSiteInfo);
+    showFunc('hicare.getAccessTokenFromCache', window.hicareJsInterface.getAccessTokenFromCache);
+    showFunc('hicare.getAccessTokenOrServiceToken', window.hicareJsInterface.getAccessTokenOrServiceToken);
+    showFunc('hicare.getDeviceSN', window.hicareJsInterface.getDeviceSN);
+    showFunc('hicare.checkLoginAndBackLoginInfo', window.hicareJsInterface.checkLoginAndBackLoginInfo);
+    showFunc('hicare.getToken', window.hicareJsInterface.getToken);
+
+    call0('hicare.getSiteInfo', () => window.hicareJsInterface.getSiteInfo());
+    call0('hicare.getAccessTokenFromCache', () => window.hicareJsInterface.getAccessTokenFromCache());
+    call0('hicare.getAccessTokenOrServiceToken', () => window.hicareJsInterface.getAccessTokenOrServiceToken());
+    call0('hicare.getDeviceSN', () => window.hicareJsInterface.getDeviceSN());
+    call0('hicare.checkLoginAndBackLoginInfo', () => window.hicareJsInterface.checkLoginAndBackLoginInfo());
+    call1('hicare.getToken', (x)=>window.hicareJsInterface.getToken(x), 'at');
+  } else {
+    log('hicareJsInterface missing');
+  }
+
+  log('--- integrationJsInterfaceWebview probes ---');
+  if (window.integrationJsInterfaceWebview) {
+    showFunc('integration.getLocalDeviceSN', window.integrationJsInterfaceWebview.getLocalDeviceSN);
+    showFunc('integration.getPaymentdata', window.integrationJsInterfaceWebview.getPaymentdata);
+    showFunc('integration.tobrowser', window.integrationJsInterfaceWebview.tobrowser);
+
+    call0('integration.getLocalDeviceSN', () => window.integrationJsInterfaceWebview.getLocalDeviceSN());
+    call0('integration.getPaymentdata', () => window.integrationJsInterfaceWebview.getPaymentdata());
+    log('NOTE: integration.tobrowser(url) not auto-called.');
+  } else {
+    log('integrationJsInterfaceWebview missing');
+  }
+
+  log('--- memberJSObject probes ---');
+  if (window.memberJSObject) {
+    showFunc('member.isDarkMode', window.memberJSObject.isDarkMode);
+    call0('member.isDarkMode', () => window.memberJSObject.isDarkMode());
+  } else {
+    log('memberJSObject missing');
+  }
+
+  log('--- myHonorH5JsInterface probes ---');
+  if (window.myHonorH5JsInterface) {
+    showFunc('myHonorH5.getSiteInfo', window.myHonorH5JsInterface.getSiteInfo);
+    showFunc('myHonorH5.getDataTime', window.myHonorH5JsInterface.getDataTime);
+    showFunc('myHonorH5.setTitle', window.myHonorH5JsInterface.setTitle);
+    showFunc('myHonorH5.close', window.myHonorH5JsInterface.close);
+
+    call0('myHonorH5.getSiteInfo', () => window.myHonorH5JsInterface.getSiteInfo());
+    call1('myHonorH5.getDataTime', (x)=>window.myHonorH5JsInterface.getDataTime(x), '1700000000000');
+    call1('myHonorH5.setTitle', (x)=>window.myHonorH5JsInterface.setTitle(x), 'Bridge PoC Title');
+    log('NOTE: myHonorH5.close() not auto-called.');
+  } else {
+    log('myHonorH5JsInterface missing');
+  }
+
+  log('--- myHonorInterfaceOversea probes ---');
+  if (window.myHonorInterfaceOversea) {
+    // This object is often the same class as hicareJsInterface; probe similarly.
+    showFunc('oversea.getAccessTokenFromCache', window.myHonorInterfaceOversea.getAccessTokenFromCache);
+    showFunc('oversea.getDeviceSN', window.myHonorInterfaceOversea.getDeviceSN);
+    showFunc('oversea.checkLoginAndBackLoginInfo', window.myHonorInterfaceOversea.checkLoginAndBackLoginInfo);
+    showFunc('oversea.getToken', window.myHonorInterfaceOversea.getToken);
+
+    call0('oversea.getAccessTokenFromCache', () => window.myHonorInterfaceOversea.getAccessTokenFromCache());
+    call0('oversea.getDeviceSN', () => window.myHonorInterfaceOversea.getDeviceSN());
+    call0('oversea.checkLoginAndBackLoginInfo', () => window.myHonorInterfaceOversea.checkLoginAndBackLoginInfo());
+    call1('oversea.getToken', (x)=>window.myHonorInterfaceOversea.getToken(x), 'at');
+  } else {
+    log('myHonorInterfaceOversea missing');
+  }
+}
+</script>
+</body>
+</html>
