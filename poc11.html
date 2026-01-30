@@ -1,35 +1,95 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Enumerate All window Properties</title>
-  <style>body { font-family: monospace; }</style>
+  <title>JS Bridge Interactive Invocation PoC</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: monospace;
+      background: #f9f9f9;
+      padding: 2em;
+    }
+    input {
+      width: 80%;
+      padding: 0.5em;
+      font-size: 14px;
+    }
+    button {
+      padding: 0.5em 1em;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    hr {
+      margin: 2em 0;
+      border: none;
+      border-top: 2px solid #ccc;
+    }
+  </style>
 </head>
 <body>
-  <h1>window Object Enumeration</h1>
-  <div id="result"></div>
-  <script>
-    // List of common browser globals to ignore
-    const ignoreList = [
+
+<h2>JS Bridge Interactive Console</h2>
+
+<input id="expr" placeholder="e.g. window.AthenaNative or AthenaNative.getAccountId()" />
+<button onclick="run()">Submit</button>
+
+<hr>
+
+<script>
+  const ignoreList = [
       'window','self','document','location','top','parent','frames','opener','navigator','console','alert','prompt','confirm','setTimeout','setInterval','clearTimeout','clearInterval','fetch','XMLHttpRequest','webkit','chrome','history','localStorage','sessionStorage','screen','innerWidth','innerHeight','outerWidth','outerHeight','pageXOffset','pageYOffset','scrollX','scrollY','performance','crypto','onload','onerror','onunload','onbeforeunload','addEventListener','removeEventListener','dispatchEvent','postMessage','requestAnimationFrame','cancelAnimationFrame','btoa','atob','encodeURIComponent','decodeURIComponent','encodeURI','decodeURI','escape','unescape','isFinite','isNaN','parseFloat','parseInt','Number','String','Boolean','Object','Array','Function','Date','RegExp','Error','Math','JSON','Intl','Reflect','Proxy','Symbol','Map','Set','WeakMap','WeakSet','Promise','URL','URLSearchParams','Blob','File','FileReader','DataView','ArrayBuffer','Uint8Array','Uint16Array','Uint32Array','Int8Array','Int16Array','Int32Array','Float32Array','Float64Array','BigInt64Array','BigUint64Array','Image','ImageData','CanvasRenderingContext2D','Audio','AudioContext','WebSocket','EventSource','Worker','SharedWorker','MessageChannel','MessagePort','BroadcastChannel','MutationObserver','ResizeObserver','IntersectionObserver','CustomEvent','Event','MouseEvent','KeyboardEvent','TouchEvent','PointerEvent','FocusEvent','InputEvent','UIEvent','WheelEvent','DragEvent','ClipboardEvent','DeviceMotionEvent','DeviceOrientationEvent','SpeechSynthesis','SpeechRecognition','Notification','Vibration','BatteryManager','Bluetooth','USB','MediaDevices','MediaStream','MediaRecorder','RTCPeerConnection','RTCSessionDescription','RTCIceCandidate','TextDecoder','TextEncoder','AbortController','AbortSignal','Headers','Request','Response','ReadableStream','WritableStream','TransformStream','DOMParser','XMLSerializer','XPathEvaluator','XPathResult','Node','Element','HTMLElement','HTMLCollection','NodeList','DocumentFragment','ShadowRoot','CustomElementRegistry','MutationRecord','Range','Selection','StyleSheet','CSSStyleSheet','CSSRule','CSSStyleRule','CSSMediaRule','CSSImportRule','CSSFontFaceRule','CSSKeyframesRule','CSSKeyframeRule','CSSNamespaceRule','CSSPageRule','CSSSupportsRule','CSS','getComputedStyle','matchMedia','requestIdleCallback','cancelIdleCallback','open','close','print','stop','focus','blur','scroll','scrollTo','scrollBy','moveTo','moveBy','resizeTo','resizeBy','getSelection','find','alert','confirm','prompt','setTimeout','setInterval','clearTimeout','clearInterval','requestAnimationFrame','cancelAnimationFrame','captureEvents','releaseEvents','getComputedStyle','matchMedia'
-    ];
-    let output = '';
-    let found = 0;
-    for (let prop in window) {
-      if (!ignoreList.includes(prop)) {
-        try {
-          let type = typeof window[prop];
-          output += `<b>${prop}</b> : <i>${type}</i><br/>`;
-          found++;
-        } catch (e) {
-          output += `<b>${prop}</b> : [exception]<br/>`;
-        }
+  ];
+
+  function write(v) {
+    document.write(v + '<br>');
+  }
+
+  function run() {
+    const expr = document.getElementById('expr').value.trim();
+    document.write('<h3>&gt; ' + expr + '</h3>');
+
+    try {
+      const result = Function('return (' + expr + ')')();
+
+      if (result === undefined) {
+        write('undefined');
+        write('<hr>');
+        return;
       }
+
+      if (result === null) {
+        write('null');
+        write('<hr>');
+        return;
+      }
+
+      // Primitive result (method calls, etc.)
+      if (typeof result !== 'object') {
+        write(String(result));
+        write('<hr>');
+        return;
+      }
+
+      let props = Object.getOwnPropertyNames(result);
+
+      // 🔥 FILTER ONLY WHEN INPUT STARTS WITH "window."
+      if (expr.startsWith('window.')) {
+        props = props.filter(p => !ignoreList.includes(p));
+      }
+
+      if (props.length === 0) {
+        write('[no results]');
+      } else {
+        props.forEach(p => write(p));
+      }
+
+    } catch (e) {
+      write('Error: ' + e);
     }
-    if (!found) {
-      output = 'No non-standard window properties found.';
-    }
-    document.getElementById('result').innerHTML = output;
-    alert('window enumeration complete!');
-  </script>
+
+    write('<hr>');
+  }
+</script>
+
 </body>
 </html>
