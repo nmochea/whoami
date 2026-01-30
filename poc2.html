@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enumerate All window Properties</title>
+  <style>body { font-family: monospace; }</style>
+</head>
+<body>
+  <h1>window Object Enumeration</h1>
+  <div id="result"></div>
+  <script>
+    // List of common browser globals to ignore
+    const ignoreList = [
+      'window','self','document','location','top','parent','frames','opener','navigator','console','alert','prompt','confirm','setTimeout','setInterval','clearTimeout','clearInterval','fetch','XMLHttpRequest','webkit','chrome','history','localStorage','sessionStorage','screen','innerWidth','innerHeight','outerWidth','outerHeight','pageXOffset','pageYOffset','scrollX','scrollY','performance','crypto','onload','onerror','onunload','onbeforeunload','addEventListener','removeEventListener','dispatchEvent','postMessage','requestAnimationFrame','cancelAnimationFrame','btoa','atob','encodeURIComponent','decodeURIComponent','encodeURI','decodeURI','escape','unescape','isFinite','isNaN','parseFloat','parseInt','Number','String','Boolean','Object','Array','Function','Date','RegExp','Error','Math','JSON','Intl','Reflect','Proxy','Symbol','Map','Set','WeakMap','WeakSet','Promise','URL','URLSearchParams','Blob','File','FileReader','DataView','ArrayBuffer','Uint8Array','Uint16Array','Uint32Array','Int8Array','Int16Array','Int32Array','Float32Array','Float64Array','BigInt64Array','BigUint64Array','Image','ImageData','CanvasRenderingContext2D','Audio','AudioContext','WebSocket','EventSource','Worker','SharedWorker','MessageChannel','MessagePort','BroadcastChannel','MutationObserver','ResizeObserver','IntersectionObserver','CustomEvent','Event','MouseEvent','KeyboardEvent','TouchEvent','PointerEvent','FocusEvent','InputEvent','UIEvent','WheelEvent','DragEvent','ClipboardEvent','DeviceMotionEvent','DeviceOrientationEvent','SpeechSynthesis','SpeechRecognition','Notification','Vibration','BatteryManager','Bluetooth','USB','MediaDevices','MediaStream','MediaRecorder','RTCPeerConnection','RTCSessionDescription','RTCIceCandidate','TextDecoder','TextEncoder','AbortController','AbortSignal','Headers','Request','Response','ReadableStream','WritableStream','TransformStream','DOMParser','XMLSerializer','XPathEvaluator','XPathResult','Node','Element','HTMLElement','HTMLCollection','NodeList','DocumentFragment','ShadowRoot','CustomElementRegistry','MutationRecord','Range','Selection','StyleSheet','CSSStyleSheet','CSSRule','CSSStyleRule','CSSMediaRule','CSSImportRule','CSSFontFaceRule','CSSKeyframesRule','CSSKeyframeRule','CSSNamespaceRule','CSSPageRule','CSSSupportsRule','CSS','getComputedStyle','matchMedia','requestIdleCallback','cancelIdleCallback','open','close','print','stop','focus','blur','scroll','scrollTo','scrollBy','moveTo','moveBy','resizeTo','resizeBy','getSelection','find','alert','confirm','prompt','setTimeout','setInterval','clearTimeout','clearInterval','requestAnimationFrame','cancelAnimationFrame','captureEvents','releaseEvents','getComputedStyle','matchMedia'
+    ];
+    let output = '';
+    let found = 0;
+    for (let prop in window) {
+      if (!ignoreList.includes(prop)) {
+        try {
+          let type = typeof window[prop];
+          output += `<b>${prop}</b> : <i>${type}</i><br/>`;
+          found++;
+        } catch (e) {
+          output += `<b>${prop}</b> : [exception]<br/>`;
+        }
+      }
+    }
+    if (!found) {
+      output = 'No non-standard window properties found.';
+    }
+    document.getElementById('result').innerHTML = output;
+    alert('window enumeration complete!');
+  </script>
+</body>
+</html>
