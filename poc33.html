@@ -1,9 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JS Bridge Interactive Invocation PoC</title>
   <meta charset="utf-8">
   <style>
+    html, body {
+    margin: 0;
+    width: 100%;
+    }
     body {
       font-family: monospace;
       background: #f9f9f9;
@@ -35,6 +40,8 @@
 <h2>JS Bridge Interactive Console</h2>
 
 <div id="output"></div>
+
+<br><br><br>
   
 <input id="expr" placeholder="e.g. window.AthenaNative or AthenaNative.getAccountId()" />
 <button onclick="run()">Submit</button>
