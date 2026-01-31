@@ -14,12 +14,21 @@
       background: #f9f9f9;
       padding: 2em;
     }
-    input {
-      width: 80%;
-      padding: 0.5em;
-      font-size: 14px;
+    .input-row {
+      display: flex;
+      width: 100%;
+      gap: 0.5em;
     }
-    button {
+
+  .input-row input {
+      flex: 1;
+      width: auto; /* override 80% */
+    }  
+
+  .input-row button {
+      white-space: nowrap;
+    }
+  button {
       padding: 0.5em 1em;
       font-size: 14px;
       cursor: pointer;
@@ -43,8 +52,10 @@
 
 <br><br><br>
   
-<input id="expr" placeholder="e.g. window.AthenaNative or AthenaNative.getAccountId()" />
-<button onclick="run()">Submit</button>
+<div class="input-row">
+  <input id="expr" placeholder="e.g. window.Android or Android.getToken()" />
+  <button onclick="run()">Submit</button>
+</div>
 
 
 
