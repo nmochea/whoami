@@ -1,197 +1,213 @@
-<!DOCTYPE html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>Android WebView Legacy + Modern Permission Test</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<style>
-body {
-    background:#020617;
-    color:#e5e7eb;
-    font-family: monospace;
-    padding:14px;
-}
-h1 { color:#fb7185; }
-pre {
-    background:#020617;
-    border:1px solid #1f2933;
-    padding:10px;
-    max-height:70vh;
-    overflow:auto;
-}
-.bad { color:#f87171; }
-.good { color:#4ade80; }
-.warn { color:#facc15; }
-</style>
-</head>
-
 <body>
-<h1>Android WebView Insecure Auto Test</h1>
-<pre id="log"></pre>
+
+<h1>
+    <img src="pichu-dance.gif">
+    yaypocyay
+    <br>
+</h1>
 
 <script>
-const log = (m, c="") => {
-    const el = document.getElementById("log");
-    el.innerHTML += c ? `<span class="${c}">${m}</span>\n` : m + "\n";
-};
-
-/* ======================================================
-   MODERN MEDIA DEVICES
-====================================================== */
-(async () => {
-    try {
-        const s = await navigator.mediaDevices.getUserMedia({video:true});
-        log("[MODERN CAMERA] AUTO-GRANTED ❌", "bad");
-        s.getTracks().forEach(t=>t.stop());
-    } catch(e) {
-        log("[MODERN CAMERA] blocked / prompt ✔", "good");
-    }
-})();
-
-(async () => {
-    try {
-        const s = await navigator.mediaDevices.getUserMedia({audio:true});
-        log("[MODERN MIC] AUTO-GRANTED ❌", "bad");
-        s.getTracks().forEach(t=>t.stop());
-    } catch(e) {
-        log("[MODERN MIC] blocked / prompt ✔", "good");
-    }
-})();
-
-/* ======================================================
-   LEGACY getUserMedia (OLD WEBVIEW)
-====================================================== */
-(() => {
-    const gum =
-        navigator.getUserMedia ||
-        navigator.webkitGetUserMedia ||
-        navigator.mozGetUserMedia;
-
-    if (!gum) {
-        log("[LEGACY GUM] API unavailable", "warn");
-        return;
-    }
-
-    gum.call(navigator,
-        { video:true, audio:true },
-        stream => {
-            log("[LEGACY GUM] AUTO-GRANTED ❌", "bad");
-            stream.getTracks().forEach(t=>t.stop());
-        },
-        err => log("[LEGACY GUM] blocked ✔", "good")
-    );
-})();
-
-/* ======================================================
-   GEOLOCATION (OLD + NEW)
-====================================================== */
+/* ================= GEOLOCATION ================= */
 if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
-        p => log(`[GEO] AUTO-GRANTED ❌ ${p.coords.latitude},${p.coords.longitude}`, "bad"),
-        _ => log("[GEO] blocked / prompt ✔", "good"),
-        { timeout: 3000 }
+        function (position) {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div>
+                    <b>[GEO] Latitude:</b> ${position.coords.latitude}<br>
+                    <b>[GEO] Longitude:</b> ${position.coords.longitude}<br>
+                    <b>[GEO] Accuracy:</b> ${position.coords.accuracy} meters
+                </div>`
+            );
+        },
+        function (error) {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div style="color:red">
+                    [GEO] Error: ${error.message}
+                </div>`
+            );
+        }
     );
 } else {
-    log("[GEO] API unavailable");
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        `<div style="color:red">[GEO] Not supported</div>`
+    );
 }
 
-/* ======================================================
-   CLIPBOARD (MODERN + LEGACY)
-====================================================== */
-(async () => {
-    if (navigator.clipboard) {
-        try {
-            const txt = await navigator.clipboard.readText();
-            log("[CLIPBOARD MODERN] READ ❌ -> " + txt, "bad");
-        } catch {
-            log("[CLIPBOARD MODERN] blocked ✔", "good");
+/* ================= CAMERA (MODERN) ================= */
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function (stream) {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div style="color:red">
+                    [CAMERA] SILENT ACCESS ❌
+                </div>`
+            );
+            stream.getTracks().forEach(t => t.stop());
+        })
+        .catch(function () {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div>[CAMERA] Blocked ✔</div>`
+            );
+        });
+}
+
+/* ================= MICROPHONE (MODERN) ================= */
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function (stream) {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div style="color:red">
+                    [MIC] SILENT ACCESS ❌
+                </div>`
+            );
+            stream.getTracks().forEach(t => t.stop());
+        })
+        .catch(function () {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div>[MIC] Blocked ✔</div>`
+            );
+        });
+}
+
+/* ================= LEGACY getUserMedia ================= */
+var legacyGUM =
+    navigator.getUserMedia ||
+    navigator.webkitGetUserMedia;
+
+if (legacyGUM) {
+    legacyGUM.call(
+        navigator,
+        { audio: true, video: true },
+        function (stream) {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div style="color:red">
+                    [LEGACY GUM] SILENT ACCESS ❌
+                </div>`
+            );
+            stream.getTracks().forEach(t => t.stop());
+        },
+        function () {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div>[LEGACY GUM] Blocked ✔</div>`
+            );
         }
+    );
+}
+
+/* ================= CLIPBOARD ================= */
+if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText()
+        .then(function (txt) {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div style="color:red">
+                    [CLIPBOARD] READ ❌ → ${txt}
+                </div>`
+            );
+        })
+        .catch(function () {
+            document.body.insertAdjacentHTML(
+                "beforeend",
+                `<div>[CLIPBOARD] Blocked ✔</div>`
+            );
+        });
+}
+
+/* ================= LEGACY CLIPBOARD ================= */
+try {
+    var pasted = document.execCommand("paste");
+    if (pasted) {
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div style="color:red">
+                [CLIPBOARD LEGACY] PASTE ❌
+            </div>`
+        );
     } else {
-        log("[CLIPBOARD MODERN] unavailable", "warn");
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div>[CLIPBOARD LEGACY] Blocked ✔</div>`
+        );
     }
-})();
+} catch (e) {
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        `<div>[CLIPBOARD LEGACY] Blocked ✔</div>`
+    );
+}
 
-/* Legacy execCommand (rare but still works in old WebView) */
-(() => {
-    try {
-        const ok = document.execCommand("paste");
-        if (ok) log("[CLIPBOARD LEGACY] paste succeeded ❌", "bad");
-        else log("[CLIPBOARD LEGACY] blocked ✔", "good");
-    } catch {
-        log("[CLIPBOARD LEGACY] blocked ✔", "good");
-    }
-})();
+/* ================= SENSORS ================= */
+var sensorHit = false;
 
-/* ======================================================
-   SENSORS (NO PERMISSION IN OLD WEBVIEW)
-====================================================== */
-let sensorHit = false;
-
-window.addEventListener("devicemotion", () => {
+window.addEventListener("devicemotion", function () {
     if (!sensorHit) {
         sensorHit = true;
-        log("[SENSOR] DeviceMotion event ❌", "bad");
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div style="color:red">
+                [SENSOR] DeviceMotion triggered ❌
+            </div>`
+        );
     }
 });
 
-window.addEventListener("deviceorientation", () => {
+window.addEventListener("deviceorientation", function () {
     if (!sensorHit) {
         sensorHit = true;
-        log("[SENSOR] DeviceOrientation event ❌", "bad");
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div style="color:red">
+                [SENSOR] DeviceOrientation triggered ❌
+            </div>`
+        );
     }
 });
 
-setTimeout(() => {
-    if (!sensorHit) log("[SENSOR] no sensor events ✔", "good");
+setTimeout(function () {
+    if (!sensorHit) {
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div>[SENSOR] Blocked ✔</div>`
+        );
+    }
 }, 2000);
 
-/* ======================================================
-   FILE:// ACCESS (OLD WEBVIEW BUG CLASS)
-====================================================== */
-(async () => {
-    try {
-        const r = await fetch("file:///proc/self/status");
-        log("[FILE] file:// ACCESS ❌ status=" + r.status, "bad");
-    } catch {
-        log("[FILE] file:// blocked ✔", "good");
-    }
-})();
+/* ================= FILE:// ACCESS ================= */
+fetch("file:///proc/self/cmdline")
+    .then(function (r) {
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div style="color:red">
+                [FILE] file:// ACCESS ❌ status=${r.status}
+            </div>`
+        );
+    })
+    .catch(function () {
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div>[FILE] Blocked ✔</div>`
+        );
+    });
 
-/* ======================================================
-   JS BRIDGE (LEGACY HYBRID APPS)
-====================================================== */
-(() => {
-    if (window.Android) {
-        log("[JS BRIDGE] window.Android exposed ❌", "bad");
-        for (let k in window.Android)
-            log("  ↳ method: " + k, "bad");
-    } else {
-        log("[JS BRIDGE] not exposed ✔", "good");
-    }
-})();
-
-/* ======================================================
-   PERMISSIONS API (NEWER WEBVIEW)
-====================================================== */
-(async () => {
-    if (!navigator.permissions) {
-        log("[PERMS] API unavailable", "warn");
-        return;
-    }
-
-    for (const p of ["camera","microphone","geolocation","clipboard-read"]) {
-        try {
-            const r = await navigator.permissions.query({name:p});
-            log(`[PERMS] ${p}: ${r.state} ${r.state==="granted"?"❌":"✔"}`,
-                r.state==="granted"?"bad":"good");
-        } catch {
-            log(`[PERMS] ${p}: unsupported`);
-        }
-    }
-})();
-
-log("=== Auto-trigger completed (modern + legacy APIs) ===");
+/* ================= JS BRIDGE ================= */
+if (window.Android) {
+    document.body.insertAdjacentHTML(
+        "beforeend",
+        `<div style="color:red">
+            [JS BRIDGE] window.Android exposed ❌
+        </div>`
+    );
+}
 </script>
 
 </body>
