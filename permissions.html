@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Android WebView Insecure Test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+    background:#020617;
+    color:#e5e7eb;
+    font-family: monospace;
+    padding:15px;
+}
+h1 { color:#f87171; }
+button {
+    background:#111827;
+    color:#e5e7eb;
+    border:1px solid #374151;
+    padding:6px;
+    margin:3px 0;
+}
+pre {
+    background:#020617;
+    border:1px solid #1f2933;
+    padding:10px;
+    max-height:60vh;
+    overflow:auto;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Android WebView Insecure Probe</h1>
+
+<button onclick="autoCamera()">Camera (auto)</button><br>
+<button onclick="autoMic()">Mic (auto)</button><br>
+<button onclick="autoGeo()">Geolocation (auto)</button><br>
+<button onclick="clipboardLeak()">Clipboard read</button><br>
+<button onclick="fileSchemeTest()">file:// access</button><br>
+<button onclick="bridgeTest()">JS Bridge</button><br>
+<button onclick="iframeTest()">Iframe privilege bleed</button><br>
+<button onclick="permissionDump()">Permission states</button><br>
+
+<pre id="log"></pre>
+
+<script>
+const log = m => document.getElementById("log").textContent += m + "\n";
+
+/* ===================== AUTO CAMERA ===================== */
+async function autoCamera() {
+    try {
+        const s = await navigator.mediaDevices.getUserMedia({video:true});
+        log("[CAMERA] AUTO-GRANTED ❌");
+        s.getTracks().forEach(t=>t.stop());
+    } catch(e) {
+        log("[CAMERA] Blocked / Prompted ✔ ("+e.name+")");
+    }
+}
+
+/* ===================== AUTO MIC ===================== */
+async function autoMic() {
+    try {
+        const s = await navigator.mediaDevices.getUserMedia({audio:true});
+        log("[MIC] AUTO-GRANTED ❌");
+        s.getTracks().forEach(t=>t.stop());
+    } catch(e) {
+        log("[MIC] Blocked / Prompted ✔ ("+e.name+")");
+    }
+}
+
+/* ===================== GEO ===================== */
+function autoGeo() {
+    if (!navigator.geolocation) {
+        log("[GEO] API unavailable");
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        p => log(`[GEO] AUTO-GRANTED ❌ ${p.coords.latitude},${p.coords.longitude}`),
+        e => log("[GEO] Blocked / Prompted ✔ ("+e.message+")")
+    );
+}
+
+/* ===================== CLIPBOARD ===================== */
+async function clipboardLeak() {
+    try {
+        const txt = await navigator.clipboard.readText();
+        log("[CLIPBOARD] READ ❌ -> " + txt);
+    } catch(e) {
+        log("[CLIPBOARD] Blocked ✔ ("+e.name+")");
+    }
+}
+
+/* ===================== FILE SCHEME ===================== */
+async function fileSchemeTest() {
+    try {
+        const r = await fetch("file:///proc/self/maps");
+        log("[FILE] file:// ACCESS ❌ status=" + r.status);
+    } catch(e) {
+        log("[FILE] file:// blocked ✔");
+    }
+}
+
+/* ===================== JS BRIDGE ===================== */
+function bridgeTest() {
+    if (window.Android) {
+        log("[BRIDGE] window.Android exposed ❌");
+        for (let k in window.Android)
+            log("  ↳ method: " + k);
+    } else {
+        log("[BRIDGE] No JS bridge ✔");
+    }
+}
+
+/* ===================== IFRAME ===================== */
+function iframeTest() {
+    const f = document.createElement("iframe");
+    f.srcdoc = `
+        <script>
+        navigator.geolocation.getCurrentPosition(
+            p=>parent.postMessage("IFRAME GEO ❌","*"),
+            e=>parent.postMessage("IFRAME GEO blocked ✔","*")
+        );
+        </script>`;
+    document.body.appendChild(f);
+    window.onmessage = e => log("[IFRAME] " + e.data);
+}
+
+/* ===================== PERMISSION ENUM ===================== */
+async function permissionDump() {
+    if (!navigator.permissions) {
+        log("[PERMS] API unavailable");
+        return;
+    }
+    for (const p of ["camera","microphone","geolocation","clipboard-read"]) {
+        try {
+            const r = await navigator.permissions.query({name:p});
+            log(`[PERMS] ${p}: ${r.state}`);
+        } catch {
+            log(`[PERMS] ${p}: unsupported`);
+        }
+    }
+}
+
+/* ===================== AUTO RUN ===================== */
+log("=== Android WebView insecure test loaded ===");
+</script>
+
+</body>
+</html>
