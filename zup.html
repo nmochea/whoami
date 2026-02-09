@@ -1,19 +1,15 @@
-<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
   <title>DJINI PoC - yandex.audioDownloader method discovery</title>
-
   <style>
     body {
       font-family: sans-serif;
       padding: 16px;
     }
-
     h1 {
       margin: 0 0 8px 0;
     }
-
     pre {
       white-space: pre-wrap;
       word-break: break-word;
@@ -24,20 +20,15 @@
     }
   </style>
 </head>
-
 <body>
   <h1>DJINI PoC</h1>
-
   <div>
     Target: <code>window.yandex.audioDownloader</code> (auto-run)
   </div>
-
   <div>
     TS: <span id="ts"></span>
   </div>
-
   <pre id="out">Running...</pre>
-
   <script>
     (function () {
       document.getElementById('ts').textContent = String(Date.now());
