@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: sans-serif; padding: 16px; }
+    h1 { margin: 0 0 8px 0; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #111; color: #0f0; padding: 12px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>DJINI PoC</h1>
+  <div>Logcat-aligned probe for <code>window.yandex.audioDownloader</code></div>
+  <div>TS: <span id="ts"></span></div>
+  <pre id="out">Running...</pre>
+<script>
+(function(){
+  document.getElementById('ts').textContent = String(Date.now());
+
+  function setOut(s){ document.getElementById('out').textContent = s; }
+  function safe(v){
+    try{
+      if (v === undefined) return 'undefined';
+      if (v === null) return 'null';
+      if (typeof v === 'string') return JSON.stringify(v);
+      if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+      if (typeof v === 'function') return '[function '+(v.name||'anonymous')+']';
+      return String(v);
+    }catch(e){ return '[unprintable:'+e+']'; }
+  }
+  function j(o){
+    try { return JSON.stringify(o); } catch(e){ return '[json_fail:'+e+']'; }
+  }
+  function ownKeys(o){
+    try { return Reflect.ownKeys(o); } catch(e){ return ['<ownKeys error '+e+'>']; }
+  }
+
+  let lines = [];
+  lines.push('--- window.yandex ---');
+  let y;
+  try { y = window.yandex; } catch(e){ lines.push('ERROR reading window.yandex: '+e); y = undefined; }
+  lines.push('typeof window.yandex = ' + (typeof y) + ' ' + safe(y));
+  if (!y) {
+    lines.push('RESULT: window.yandex not present');
+    setOut(lines.join('\n'));
+    alert('window.yandex not present');
+    return;
+  }
+
+  const ykeys = ownKeys(y);
+  lines.push('ownKeys(window.yandex) = ' + j(ykeys));
+
+  lines.push('--- audioDownloader descriptor ---');
+  let d;
+  try { d = Object.getOwnPropertyDescriptor(y, 'audioDownloader'); } catch(e){ d = {error:String(e)}; }
+  if (d && !d.error) {
+    lines.push('descriptor = ' + j({
+      has: true,
+      enumerable: !!d.enumerable,
+      configurable: !!d.configurable,
+      writable: ('writable' in d) ? !!d.writable : undefined,
+      hasValue: ('value' in d),
+      valueType: ('value' in d) ? (typeof d.value) : undefined,
+      hasGet: typeof d.get === 'function',
+      hasSet: typeof d.set === 'function'
+    }));
+  } else {
+    lines.push('descriptor = ' + j(d));
+  }
+
+  lines.push('--- window.yandex.audioDownloader ---');
+  let ad;
+  try { ad = y.audioDownloader; } catch(e){ lines.push('ERROR reading y.audioDownloader: '+e); ad = undefined; }
+  lines.push('typeof y.audioDownloader = ' + (typeof ad) + ' ' + safe(ad));
+
+  if (!ad) {
+    lines.push('RESULT: audioDownloader is not bound (undefined/null) in this context.');
+    lines.push('Exploitability: cannot call methods because there is no object.');
+    setOut(lines.join('\n'));
+    alert('audioDownloader is undefined here. No callable methods.');
+    return;
+  }
+
+  lines.push('--- audioDownloader surface ---');
+  const adKeys = ownKeys(ad);
+  lines.push('ownKeys(audioDownloader) = ' + j(adKeys.slice(0,200)));
+  const fnNames = [];
+  for (const k of adKeys) {
+    try { if (typeof ad[k] === 'function') fnNames.push(String(k)); } catch(e) {}
+  }
+  lines.push('function keys = ' + j(fnNames));
+
+  setOut(lines.join('\n'));
+  alert('audioDownloader bound. See output.');
+})();
+</script>
+</body>
+</html>
