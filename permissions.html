@@ -91,7 +91,8 @@ footer{margin-top:28px;color:var(--muted);font-size:13px}
 <body>
 <main>
   <h1>WebView security checker</h1>
-  <p class="sub">Audits what this page can reach from inside your Android WebView. A blocked capability is a pass. Everything runs locally and nothing is sent anywhere.</p>
+  <p class="sub">Audits what this page can reach from inside your Android WebView, and cross-checks the engine version against recent public WebView/Chromium CVEs. A blocked capability is a pass. Everything runs locally and nothing is sent anywhere.</p>
+  <p class="sub mono" style="font-size:12px">Updated Oct 2026 — adds engine CVE cross-checks, a postMessage/WebMessageListener probe, and current Android native-bridge guidance.</p>
 
   <div class="grade"><strong id="gradeText">Running checks…</strong><span id="gradeSub"></span></div>
   <div class="bar" id="bar" aria-hidden="true"><i class="s" style="width:0"></i><i class="w" style="width:0"></i><i class="b" style="width:0"></i><i class="n" style="width:0"></i></div>
@@ -132,12 +133,13 @@ footer{margin-top:28px;color:var(--muted);font-size:13px}
       <button data-m="pointerlock">Pointer lock</button>
       <button data-m="payment">Payment Request</button>
       <button data-m="contacts">Contacts picker</button>
+      <button data-m="postmessage">postMessage probe</button>
     </div>
     <pre class="log" id="mlog">Tap a button. Results appear here.</pre>
   </div>
 
   <footer>
-    Use this on apps you own or are authorised to test. Some findings (debugging flags, safe browsing, file-access settings) can’t be read from JavaScript and are covered in the checklist at the bottom of the JSON report.
+    Use this on apps you own or are authorised to test. Some findings (debugging flags, safe browsing, file-access settings) can’t be read from JavaScript and are covered in the checklist at the bottom of the JSON report. The "Known advisories" section is informational only — version strings can lie or be backported, so treat it as a prompt to verify, not proof either way.
   </footer>
 </main>
 
@@ -161,6 +163,18 @@ function withTimeout(p, ms){
   });
 }
 function errName(e){ return e && (e.name || e.message) ? (e.name + (e.message ? ": " + e.message : "")) : String(e); }
+/* Compares two dotted version strings (e.g. "143.0.7499.192"). Returns -1/0/1. */
+function compareVersionStrings(a, b){
+  var pa = String(a).split(".").map(Number);
+  var pb = String(b).split(".").map(Number);
+  var len = Math.max(pa.length, pb.length);
+  for(var i = 0; i < len; i++){
+    var na = pa[i] || 0, nb = pb[i] || 0;
+    if(na < nb) return -1;
+    if(na > nb) return 1;
+  }
+  return 0;
+}
 function mk(tag, cls, text){
   var el = document.createElement(tag);
   if(cls) el.className = cls;
@@ -293,6 +307,21 @@ function suiteEnvironment(){
     var d = m[0] + " (major " + major + ")";
     var age = major < 120;
     return age ? {s:"warn", d:d + ". This is an old engine.", f:"Keep Android System WebView updated; prompt users on old devices."} : {s:"safe", d:d};
+  }));
+  p.push(test("Environment", "Known CVE exposure (engine)", function(){
+    var m = ua.match(/Chrome\/([\d.]+)/);
+    if(!m) return {s:"info", d:"No Chrome/Chromium version string found — can't cross-check against known-CVE fixed builds."};
+    var ver = m[1];
+    var fixedFor628 = "143.0.7499.192";
+    var cmp = compareVersionStrings(ver, fixedFor628);
+    if(cmp < 0){
+      return {
+        s:"warn",
+        d:"Chromium " + ver + " predates " + fixedFor628 + ", the build that fixed CVE-2026-0628: insufficient policy enforcement in the WebView tag that let a malicious extension inject script or HTML into a privileged page. This only compares version strings — it doesn't confirm the device actually lacks the patch (some OEMs backport fixes).",
+        f:"Update Android System WebView from the Play Store; verify the installed build with WebViewCompat.getCurrentWebViewPackage()."
+      };
+    }
+    return {s:"safe", d:"Chromium " + ver + " is at or after " + fixedFor628 + " (CVE-2026-0628 fix)."};
   }));
   p.push(test("Environment", "Android version", function(){
     var m = ua.match(/Android\s([\d.]+)/);
@@ -747,7 +776,31 @@ function suiteStorage(){
   return Promise.all(p);
 }
 
-/* ---------- 7. Review checklist (static, native-side) ---------- */
+/* ---------- 7. Known advisories (informational — can't be verified from JS alone) ---------- */
+function suiteAdvisories(){
+  var C = "Known advisories (informational)";
+  var p = [];
+
+  function note(name, detail){
+    p.push(test(C, name, function(){ return {s:"info", d:detail}; }));
+  }
+
+  note("CVE-2026-0628 — WebView tag policy enforcement",
+    "Insufficient policy enforcement in the WebView tag (Chrome before 143.0.7499.192) let an attacker who convinced a user to install a malicious extension inject script or HTML into a privileged page. Covered by the engine-version check above.");
+
+  note("CVE-2025-46299 — WebKit memory-initialization leak",
+    "A memory-initialization issue in WebKit could disclose a page's internal app state; found by Google's Big Sleep and fixed in Safari 26.2 (Dec 2025). Relevant if your app also ships an iOS WKWebView build — this page only audits the Android/Chromium side.");
+
+  note("CVE-2026-20643 — WebKit Navigation API same-origin bypass",
+    "A cross-origin issue in WebKit's Navigation API could bypass the same-origin policy on maliciously crafted content; Apple fixed it with a silent Background Security Improvement for iOS/macOS 26.3.1–26.3.2 (Mar 2026). Android WebView uses Chromium, not WebKit, so this specific CVE doesn't apply here — listed for teams maintaining both platforms.");
+
+  note("Industry shift: addJavascriptInterface → WebMessageListener",
+    "Android's own native-bridge guidance now steers new bridges toward WebViewCompat.addWebMessageListener() with an explicit allowedOriginRules allow-list, instead of addJavascriptInterface(), because the latter exposes the Java object to every frame (including injected iframes) with no caller-origin check. See developer.android.com/privacy-and-security/risks/insecure-webview-native-bridges.");
+
+  return Promise.all(p);
+}
+
+/* ---------- 8. Review checklist (static, native-side) ---------- */
 var CHECKLIST = [
   "setJavaScriptEnabled(true) only for trusted origins",
   "setAllowFileAccess(false)",
@@ -758,15 +811,19 @@ var CHECKLIST = [
   "setWebContentsDebuggingEnabled(false) in release",
   "Override shouldOverrideUrlLoading and allow-list schemes (block intent://, file://, javascript:)",
   "Override onPermissionRequest, onGeolocationPermissionsShowPrompt and onShowFileChooser with explicit decisions",
-  "Verify origins before exposing any @JavascriptInterface, or use WebViewCompat.addWebMessageListener with allowedOriginRules",
+  "Prefer WebViewCompat.addWebMessageListener() with allowedOriginRules over addJavascriptInterface() for new bridges",
+  "If addJavascriptInterface() is still used: call removeJavascriptInterface() for every injected name before loading any untrusted URL (e.g. in shouldInterceptRequest), not only once at startup",
+  "Target API level 21+ so addJavascriptInterface requires @JavascriptInterface annotations (closes the pre-21 reflection hole)",
+  "For MessageChannel/postMessage bridges, never post to '*' — set an explicit target origin and validate the sender's origin on receipt",
   "Handle onReceivedSslError by cancelling, never proceed()",
   "Disable setSavePassword / form data autofill if not required",
-  "Clear cache, cookies and WebStorage on logout",
+  "Clear cache, cookies and WebStorage on logout, and before using a JS interface if the view may hold sensitive data (clearCache(true))",
   "Set FLAG_SECURE for sensitive screens",
   "Use WebViewAssetLoader instead of file:// for local content",
   "Set a network security config with cleartextTrafficPermitted=false",
   "Keep Android System WebView updated and check WebViewCompat.getCurrentWebViewPackage()"
 ];
+
 
 /* ======================================================
    MANUAL TESTS
@@ -860,6 +917,18 @@ var manual = {
   contacts: function(){
     if(!(navigator.contacts && navigator.contacts.select)) return log("[CONTACTS] picker absent ✔");
     navigator.contacts.select(["name"]).then(function(){ log("[CONTACTS] picker returned ❌"); }, function(e){ log("[CONTACTS] blocked ✔ (" + errName(e) + ")"); });
+  },
+  postmessage: function(){
+    function handler(e){
+      log("[POSTMESSAGE] reply from origin \"" + e.origin + "\": " + String(e.data).slice(0, 200));
+    }
+    window.addEventListener("message", handler);
+    try{
+      window.postMessage({__webviewChecker:true, probe:"ping", ts:Date.now()}, "*");
+      log("[POSTMESSAGE] sent a test message with target origin '*' and is listening for 2s.");
+      log("[POSTMESSAGE] a reply here means something (native code or another frame) is listening without checking the sender's origin — review allowedOriginRules on addWebMessageListener, or the origin check in your 'message' handler.");
+    }catch(e){ log("[POSTMESSAGE] " + errName(e)); }
+    setTimeout(function(){ window.removeEventListener("message", handler); log("[POSTMESSAGE] stopped listening. No reply ✔ unless your own app code responds by design."); }, 2000);
   }
 };
 document.querySelectorAll("[data-m]").forEach(function(b){
@@ -918,6 +987,7 @@ function runAll(){
     .then(suiteFiles)
     .then(suiteStorage)
     .then(suiteCapabilities)
+    .then(suiteAdvisories)
     .then(function(){
       var h = mk("h2", null, "Native-side checklist");
       var box = mk("div", "cat");
