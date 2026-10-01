@@ -1,212 +1,940 @@
-<html>
-<body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WebView security checker</title>
+<style>
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#1b2430; --muted:#5b6776; --line:#d5dbe2;
+  --safe:#1f8a5b; --safe-bg:#e3f4ec;
+  --bad:#c8372d;  --bad-bg:#fbe7e5;
+  --warn:#9a6a10; --warn-bg:#fbf0d9;
+  --info:#2c5fb3; --info-bg:#e5edf9;
+  --na:#6b7480;   --na-bg:#eceff2;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#12171d; --panel:#1b222b; --ink:#e6ebf0; --muted:#97a3b1; --line:#2c3541;
+    --safe:#5fd09b; --safe-bg:#12301f;
+    --bad:#ff8077;  --bad-bg:#3a1a18;
+    --warn:#f0c164; --warn-bg:#352a10;
+    --info:#8db4f5; --info-bg:#172641;
+    --na:#9aa4b0;   --na-bg:#252c35;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);
+}
+main{max-width:760px;margin:0 auto;padding:16px 14px 48px}
+h1{font-size:22px;margin:8px 0 2px;letter-spacing:-.01em}
+h2{font-size:16px;margin:26px 0 8px}
+.sub{color:var(--muted);margin:0 0 14px}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
 
-<h1>
-    PERMISSIONS CHECK
-</h1>
+/* verdict strip */
+.verdict{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tile b{display:block;font-size:26px;line-height:1.1}
+.tile span{color:var(--muted);font-size:12.5px}
+.tile.safe b{color:var(--safe)} .tile.bad b{color:var(--bad)} .tile.warn b{color:var(--warn)} .tile.info b{color:var(--info)}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.bar .s{background:var(--safe)} .bar .b{background:var(--bad)} .bar .w{background:var(--warn)} .bar .n{background:var(--na)}
+.grade{display:flex;align-items:center;gap:10px;margin:12px 0 6px;color:var(--muted)}
+.grade strong{color:var(--ink);font-size:15px}
+
+/* controls */
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+button{
+  font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;padding:8px 12px;cursor:pointer;min-height:40px;
+}
+button:hover{border-color:var(--info)}
+button:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button[aria-pressed="true"]{border-color:var(--info);background:var(--info-bg);color:var(--info)}
+
+/* result rows */
+.cat{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.row{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:10px 12px;border-top:1px solid var(--line);align-items:start}
+.row:first-child{border-top:0}
+.badge{display:inline-block;text-align:center;font-weight:600;font-size:12.5px;border-radius:6px;padding:3px 6px;white-space:nowrap}
+.badge.safe{background:var(--safe-bg);color:var(--safe)}
+.badge.bad{background:var(--bad-bg);color:var(--bad)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.badge.na{background:var(--na-bg);color:var(--na)}
+.badge.run{background:var(--na-bg);color:var(--muted)}
+.name{font-weight:600}
+.detail{color:var(--muted);font-size:13.5px;word-break:break-word;white-space:pre-wrap}
+.fix{font-size:13px;margin-top:3px;color:var(--ink)}
+.fix::before{content:"Fix: ";font-weight:600;color:var(--info)}
+.hidden{display:none}
+
+.manual{display:flex;flex-wrap:wrap;gap:8px;padding:12px}
+pre.log{margin:0;padding:12px;max-height:160px;overflow:auto;background:var(--na-bg);border-radius:0 0 12px 12px;white-space:pre-wrap}
+footer{margin-top:28px;color:var(--muted);font-size:13px}
+@media (max-width:420px){
+  .verdict{grid-template-columns:repeat(2,1fr)}
+  .row{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:no-preference){
+  .bar i{transition:width .3s ease}
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>WebView security checker</h1>
+  <p class="sub">Audits what this page can reach from inside your Android WebView. A blocked capability is a pass. Everything runs locally and nothing is sent anywhere.</p>
+
+  <div class="grade"><strong id="gradeText">Running checks…</strong><span id="gradeSub"></span></div>
+  <div class="bar" id="bar" aria-hidden="true"><i class="s" style="width:0"></i><i class="w" style="width:0"></i><i class="b" style="width:0"></i><i class="n" style="width:0"></i></div>
+
+  <div class="verdict">
+    <div class="tile safe"><b id="cSafe">0</b><span>Blocked</span></div>
+    <div class="tile bad"><b id="cBad">0</b><span>Exposed</span></div>
+    <div class="tile warn"><b id="cWarn">0</b><span>Needs review</span></div>
+    <div class="tile info"><b id="cInfo">0</b><span>Info</span></div>
+  </div>
+
+  <div class="controls" role="group" aria-label="Filter results">
+    <button class="primary" id="rerun">Run again</button>
+    <button data-filter="all" aria-pressed="true">All</button>
+    <button data-filter="bad" aria-pressed="false">Exposed</button>
+    <button data-filter="warn" aria-pressed="false">Review</button>
+    <button id="copy">Copy JSON</button>
+    <button id="dl">Save JSON</button>
+  </div>
+
+  <div id="out"></div>
+
+  <h2>Manual tests</h2>
+  <p class="sub">These need a tap because Android only allows them after a user gesture.</p>
+  <div class="cat">
+    <div class="manual">
+      <button data-m="screen">Screen capture</button>
+      <button data-m="picker">File chooser</button>
+      <button data-m="fsa">File System Access</button>
+      <button data-m="popup">window.open popup</button>
+      <button data-m="intent">intent:// link</button>
+      <button data-m="scheme">Custom scheme</button>
+      <button data-m="tel">tel: link</button>
+      <button data-m="download">Blob download</button>
+      <button data-m="dialogs">alert / confirm / prompt</button>
+      <button data-m="share">Web Share</button>
+      <button data-m="fullscreen">Fullscreen</button>
+      <button data-m="pointerlock">Pointer lock</button>
+      <button data-m="payment">Payment Request</button>
+      <button data-m="contacts">Contacts picker</button>
+    </div>
+    <pre class="log" id="mlog">Tap a button. Results appear here.</pre>
+  </div>
+
+  <footer>
+    Use this on apps you own or are authorised to test. Some findings (debugging flags, safe browsing, file-access settings) can’t be read from JavaScript and are covered in the checklist at the bottom of the JSON report.
+  </footer>
+</main>
 
 <script>
-/* ================= GEOLOCATION ================= */
-if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-        function (position) {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div>
-                    <b>[GEO] Latitude:</b> ${position.coords.latitude}<br>
-                    <b>[GEO] Longitude:</b> ${position.coords.longitude}<br>
-                    <b>[GEO] Accuracy:</b> ${position.coords.accuracy} meters
-                </div>`
-            );
-        },
-        function (error) {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div style="color:red">
-                    [GEO] Error: ${error.message}
-                </div>`
-            );
-        }
-    );
-} else {
-    document.body.insertAdjacentHTML(
-        "beforeend",
-        `<div style="color:red">[GEO] Not supported</div>`
-    );
+(function(){
+"use strict";
+
+var TIMEOUT = 8000;
+var results = [];
+var out = document.getElementById("out");
+var cats = {};
+
+/* ---------- helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function withTimeout(p, ms){
+  return new Promise(function(res){
+    var done = false;
+    var t = setTimeout(function(){ if(!done){ done = true; res({__timeout:true}); } }, ms || TIMEOUT);
+    Promise.resolve(p).then(function(v){ if(!done){ done = true; clearTimeout(t); res({ok:true,v:v}); } },
+                            function(e){ if(!done){ done = true; clearTimeout(t); res({err:e}); } });
+  });
+}
+function errName(e){ return e && (e.name || e.message) ? (e.name + (e.message ? ": " + e.message : "")) : String(e); }
+function mk(tag, cls, text){
+  var el = document.createElement(tag);
+  if(cls) el.className = cls;
+  if(text != null) el.textContent = text;
+  return el;
+}
+var LABEL = { safe:"Blocked", bad:"Exposed", warn:"Review", info:"Info", na:"Not present", run:"Running" };
+
+function category(name){
+  if(cats[name]) return cats[name];
+  var h = mk("h2", null, name);
+  var box = mk("div", "cat");
+  out.appendChild(h); out.appendChild(box);
+  cats[name] = box;
+  return box;
+}
+function addRow(cat, name){
+  var row = mk("div", "row");
+  var badge = mk("span", "badge run", LABEL.run);
+  var left = mk("div"); left.appendChild(badge);
+  var right = mk("div");
+  right.appendChild(mk("div", "name", name));
+  var det = mk("div", "detail"); right.appendChild(det);
+  row.appendChild(left); row.appendChild(right);
+  category(cat).appendChild(row);
+  return { row:row, badge:badge, det:det, right:right };
+}
+function finish(ui, rec, status, detail, fix){
+  rec.status = status; rec.detail = detail || "";
+  ui.badge.className = "badge " + status;
+  ui.badge.textContent = LABEL[status];
+  ui.det.textContent = detail || "";
+  ui.row.setAttribute("data-status", status);
+  if(fix && (status === "bad" || status === "warn")){
+    rec.fix = fix;
+    ui.right.appendChild(mk("div", "fix", fix));
+  }
+  refreshSummary();
+  applyFilter();
 }
 
-/* ================= CAMERA (MODERN) ================= */
-if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(function (stream) {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div style="color:red">
-                    [CAMERA] SILENT ACCESS ❌
-                </div>`
-            );
-            stream.getTracks().forEach(t => t.stop());
-        })
-        .catch(function () {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div>[CAMERA] Blocked ✔</div>`
-            );
-        });
+/* A test returns {s:status, d:detail, f:fix}; throw = treated as 'safe/blocked' unless noted */
+function test(cat, name, fn){
+  var rec = { category:cat, name:name, status:"run", detail:"" };
+  results.push(rec);
+  var ui = addRow(cat, name);
+  return Promise.resolve().then(fn).then(function(r){
+    r = r || {s:"info", d:""};
+    finish(ui, rec, r.s, r.d, r.f);
+  }, function(e){
+    finish(ui, rec, "info", "Test crashed: " + errName(e));
+  });
 }
 
-/* ================= MICROPHONE (MODERN) ================= */
-if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(function (stream) {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div style="color:red">
-                    [MIC] SILENT ACCESS ❌
-                </div>`
-            );
-            stream.getTracks().forEach(t => t.stop());
-        })
-        .catch(function () {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div>[MIC] Blocked ✔</div>`
-            );
-        });
-}
-
-/* ================= LEGACY getUserMedia ================= */
-var legacyGUM =
-    navigator.getUserMedia ||
-    navigator.webkitGetUserMedia;
-
-if (legacyGUM) {
-    legacyGUM.call(
-        navigator,
-        { audio: true, video: true },
-        function (stream) {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div style="color:red">
-                    [LEGACY GUM] SILENT ACCESS ❌
-                </div>`
-            );
-            stream.getTracks().forEach(t => t.stop());
-        },
-        function () {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div>[LEGACY GUM] Blocked ✔</div>`
-            );
-        }
-    );
-}
-
-/* ================= CLIPBOARD ================= */
-if (navigator.clipboard && navigator.clipboard.readText) {
-    navigator.clipboard.readText()
-        .then(function (txt) {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div style="color:red">
-                    [CLIPBOARD] READ ❌ → ${txt}
-                </div>`
-            );
-        })
-        .catch(function () {
-            document.body.insertAdjacentHTML(
-                "beforeend",
-                `<div>[CLIPBOARD] Blocked ✔</div>`
-            );
-        });
-}
-
-/* ================= LEGACY CLIPBOARD ================= */
-try {
-    var pasted = document.execCommand("paste");
-    if (pasted) {
-        document.body.insertAdjacentHTML(
-            "beforeend",
-            `<div style="color:red">
-                [CLIPBOARD LEGACY] PASTE ❌
-            </div>`
-        );
-    } else {
-        document.body.insertAdjacentHTML(
-            "beforeend",
-            `<div>[CLIPBOARD LEGACY] Blocked ✔</div>`
-        );
-    }
-} catch (e) {
-    document.body.insertAdjacentHTML(
-        "beforeend",
-        `<div>[CLIPBOARD LEGACY] Blocked ✔</div>`
-    );
-}
-
-/* ================= SENSORS ================= */
-var sensorHit = false;
-
-window.addEventListener("devicemotion", function () {
-    if (!sensorHit) {
-        sensorHit = true;
-        document.body.insertAdjacentHTML(
-            "beforeend",
-            `<div style="color:red">
-                [SENSOR] DeviceMotion triggered ❌
-            </div>`
-        );
-    }
-});
-
-window.addEventListener("deviceorientation", function () {
-    if (!sensorHit) {
-        sensorHit = true;
-        document.body.insertAdjacentHTML(
-            "beforeend",
-            `<div style="color:red">
-                [SENSOR] DeviceOrientation triggered ❌
-            </div>`
-        );
-    }
-});
-
-setTimeout(function () {
-    if (!sensorHit) {
-        document.body.insertAdjacentHTML(
-            "beforeend",
-            `<div>[SENSOR] Blocked ✔</div>`
-        );
-    }
-}, 2000);
-
-/* ================= FILE:// ACCESS ================= */
-fetch("file:///proc/self/cmdline")
-    .then(function (r) {
-        document.body.insertAdjacentHTML(
-            "beforeend",
-            `<div style="color:red">
-                [FILE] file:// ACCESS ❌ status=${r.status}
-            </div>`
-        );
-    })
-    .catch(function () {
-        document.body.insertAdjacentHTML(
-            "beforeend",
-            `<div>[FILE] Blocked ✔</div>`
-        );
+/* Standard shape for a "request this capability" test */
+function capTest(cat, name, supportedCheck, request, fix){
+  return test(cat, name, function(){
+    if(!supportedCheck()) return {s:"na", d:"API not available in this WebView"};
+    return withTimeout(request()).then(function(r){
+      if(r.__timeout) return {s:"warn", d:"No answer after " + (TIMEOUT/1000) + "s. The app may not be handling the permission request (hung prompt).", f:"Override onPermissionRequest / onGeolocationPermissionsShowPrompt and call deny() or reject explicitly."};
+      if(r.err){
+        var n = r.err && r.err.name;
+        return {s:"safe", d:"Denied (" + errName(r.err) + ")"};
+      }
+      return {s:"bad", d:(r.v && r.v.detail) || "Granted without a visible block", f:fix};
     });
-
-/* ================= JS BRIDGE ================= */
-if (window.Android) {
-    document.body.insertAdjacentHTML(
-        "beforeend",
-        `<div style="color:red">
-            [JS BRIDGE] window.Android exposed ❌
-        </div>`
-    );
+  });
 }
-</script>
 
+/* ---------- summary ---------- */
+function refreshSummary(){
+  var c = {safe:0,bad:0,warn:0,info:0,na:0,run:0};
+  results.forEach(function(r){ c[r.status] = (c[r.status]||0) + 1; });
+  $("cSafe").textContent = c.safe + c.na;
+  $("cBad").textContent = c.bad;
+  $("cWarn").textContent = c.warn;
+  $("cInfo").textContent = c.info;
+  var total = results.length || 1;
+  var bar = $("bar").children;
+  bar[0].style.width = ((c.safe)/total*100) + "%";
+  bar[1].style.width = ((c.warn)/total*100) + "%";
+  bar[2].style.width = ((c.bad)/total*100) + "%";
+  bar[3].style.width = ((c.na + c.info)/total*100) + "%";
+  if(c.run){
+    $("gradeText").textContent = "Running checks… (" + c.run + " left)";
+    $("gradeSub").textContent = "";
+  } else {
+    var g = c.bad === 0 && c.warn === 0 ? "Hardened"
+          : c.bad === 0 ? "Mostly hardened"
+          : c.bad <= 3 ? "Some exposure" : "Heavily exposed";
+    $("gradeText").textContent = g;
+    $("gradeSub").textContent = c.bad + " exposed, " + c.warn + " to review, out of " + results.length + " checks";
+  }
+}
+
+/* ---------- filters ---------- */
+var currentFilter = "all";
+function applyFilter(){
+  var rows = document.querySelectorAll(".row");
+  for(var i=0;i<rows.length;i++){
+    var s = rows[i].getAttribute("data-status");
+    rows[i].classList.toggle("hidden", currentFilter !== "all" && s !== currentFilter);
+  }
+}
+document.querySelectorAll("[data-filter]").forEach(function(b){
+  b.addEventListener("click", function(){
+    currentFilter = b.getAttribute("data-filter");
+    document.querySelectorAll("[data-filter]").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true":"false"); });
+    applyFilter();
+  });
+});
+
+/* ======================================================
+   CHECK SUITES
+   ====================================================== */
+
+/* ---------- 1. Environment ---------- */
+function suiteEnvironment(){
+  var ua = navigator.userAgent;
+  var p = [];
+  p.push(test("Environment", "WebView detection", function(){
+    var wv = /; wv\)/.test(ua) || (/Version\/4\.0/.test(ua) && /Chrome\//.test(ua));
+    return {s:"info", d: wv ? "Looks like an Android WebView" : "Looks like a regular browser (Chrome/other)"};
+  }));
+  p.push(test("Environment", "User agent", function(){ return {s:"info", d:ua}; }));
+  p.push(test("Environment", "Chromium version", function(){
+    var m = ua.match(/Chrome\/(\d+)\.(\d+)\.(\d+)\.(\d+)/);
+    if(!m) return {s:"info", d:"Not found"};
+    var major = +m[1];
+    var d = m[0] + " (major " + major + ")";
+    var age = major < 120;
+    return age ? {s:"warn", d:d + ". This is an old engine.", f:"Keep Android System WebView updated; prompt users on old devices."} : {s:"safe", d:d};
+  }));
+  p.push(test("Environment", "Android version", function(){
+    var m = ua.match(/Android\s([\d.]+)/);
+    return {s:"info", d: m ? m[1] : "Not exposed"};
+  }));
+  p.push(test("Environment", "Secure context", function(){
+    return window.isSecureContext
+      ? {s:"info", d:"Yes. Powerful APIs are allowed to exist."}
+      : {s:"info", d:"No. Camera, mic, clipboard, sensors and others are blocked by the engine."};
+  }));
+  p.push(test("Environment", "Page origin", function(){
+    var proto = location.protocol;
+    var d = proto + "//" + (location.host || "(none)") + "  origin=" + String(location.origin);
+    if(proto === "file:") return {s:"warn", d:d + "\nPage runs from the file scheme, so file-access settings matter a lot.", f:"Serve content via WebViewAssetLoader (https://appassets.androidplatform.net) instead of file://."};
+    if(proto === "http:") return {s:"warn", d:d + "\nCleartext page.", f:"Use https, and block cleartext in network security config."};
+    return {s:"info", d:d};
+  }));
+  p.push(test("Environment", "Frame context", function(){
+    var top = window.top === window.self;
+    return {s:"info", d: top ? "Top-level frame" : "Inside an iframe", };
+  }));
+  p.push(test("Environment", "window.opener", function(){
+    return window.opener ? {s:"warn", d:"window.opener is set", f:"Use noopener and avoid setSupportMultipleWindows unless needed."} : {s:"safe", d:"Not set"};
+  }));
+  p.push(test("Environment", "Content-Security-Policy meta", function(){
+    var m = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    return m ? {s:"info", d:m.content} : {s:"warn", d:"No CSP meta tag. Headers can't be read from JS.", f:"Send a strict Content-Security-Policy header with your pages."};
+  }));
+  return Promise.all(p);
+}
+
+/* ---------- 2. Permissions API ---------- */
+function suitePermissionsAPI(){
+  var names = ["geolocation","camera","microphone","notifications","clipboard-read","clipboard-write",
+               "persistent-storage","midi","accelerometer","gyroscope","magnetometer","ambient-light-sensor",
+               "background-sync","screen-wake-lock","payment-handler","storage-access","display-capture","bluetooth"];
+  return Promise.all(names.map(function(n){
+    return test("Permission states", n, function(){
+      if(!navigator.permissions || !navigator.permissions.query) return {s:"na", d:"Permissions API not available"};
+      return withTimeout(navigator.permissions.query({name:n}), 3000).then(function(r){
+        if(r.__timeout) return {s:"warn", d:"Query timed out"};
+        if(r.err) return {s:"na", d:"Not supported (" + errName(r.err) + ")"};
+        var st = r.v.state;
+        if(st === "granted") return {s:"bad", d:"state = granted", f:"Check whether your app should hold " + n + " at all, and gate it in WebChromeClient."};
+        if(st === "prompt")  return {s:"warn", d:"state = prompt (page may trigger a prompt)", f:"Decide explicitly in WebChromeClient; don't leave defaults."};
+        return {s:"safe", d:"state = denied"};
+      });
+    });
+  }));
+}
+
+/* ---------- 3. Active capability requests ---------- */
+function suiteCapabilities(){
+  var C = "Hardware and data access";
+  var p = [];
+
+  p.push(capTest(C, "Geolocation", function(){ return !!navigator.geolocation; }, function(){
+    return new Promise(function(res, rej){
+      navigator.geolocation.getCurrentPosition(function(pos){
+        res({detail:"lat " + pos.coords.latitude.toFixed(2) + ", lon " + pos.coords.longitude.toFixed(2) + " (rounded), accuracy " + Math.round(pos.coords.accuracy) + " m"});
+      }, rej, {timeout:6000, maximumAge:0});
+    });
+  }, "Return false/deny from onGeolocationPermissionsShowPrompt for untrusted origins; remove ACCESS_FINE_LOCATION if unused."));
+
+  function media(constraints){
+    return function(){
+      return navigator.mediaDevices.getUserMedia(constraints).then(function(stream){
+        var tracks = stream.getTracks().map(function(t){ return t.kind + ":" + (t.label || "unlabelled"); });
+        stream.getTracks().forEach(function(t){ t.stop(); });
+        return {detail:"Stream opened: " + tracks.join(", ")};
+      });
+    };
+  }
+  var hasGUM = function(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); };
+  var mediaFix = "Deny in onPermissionRequest unless the origin is trusted; remove CAMERA / RECORD_AUDIO from the manifest if unused.";
+  p.push(capTest(C, "Camera (getUserMedia video)", hasGUM, media({video:true}), mediaFix));
+  p.push(capTest(C, "Microphone (getUserMedia audio)", hasGUM, media({audio:true}), mediaFix));
+  p.push(capTest(C, "Camera + microphone together", hasGUM, media({audio:true, video:true}), mediaFix));
+
+  p.push(test(C, "Legacy getUserMedia (webkit)", function(){
+    var g = navigator.getUserMedia || navigator.webkitGetUserMedia;
+    if(!g) return {s:"na", d:"Legacy API not present"};
+    return withTimeout(new Promise(function(res, rej){
+      g.call(navigator, {audio:true, video:true}, function(st){ st.getTracks().forEach(function(t){ t.stop(); }); res(); }, rej);
+    })).then(function(r){
+      if(r.__timeout) return {s:"warn", d:"No answer", f:"Handle onPermissionRequest explicitly."};
+      return r.err ? {s:"safe", d:"Denied (" + errName(r.err) + ")"} : {s:"bad", d:"Legacy capture succeeded", f:"Deny in onPermissionRequest."};
+    });
+  }));
+
+  p.push(test(C, "Enumerate media devices", function(){
+    if(!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices)) return {s:"na", d:"Not available"};
+    return withTimeout(navigator.mediaDevices.enumerateDevices()).then(function(r){
+      if(r.err || r.__timeout) return {s:"safe", d:"Blocked"};
+      var l = r.v.map(function(d){ return d.kind; });
+      var labelled = r.v.some(function(d){ return d.label; });
+      return {s: labelled ? "bad" : "info", d: r.v.length + " device(s): " + l.join(", ") + (labelled ? "\nDevice labels are visible." : "\nLabels hidden (good).")};
+    });
+  }));
+
+  p.push(capTest(C, "Clipboard read (async API)", function(){ return !!(navigator.clipboard && navigator.clipboard.readText); }, function(){
+    return navigator.clipboard.readText().then(function(t){
+      return {detail:"Read " + t.length + " character(s). Contents hidden on purpose."};
+    });
+  }, "Deny clipboard-read; never let untrusted origins read the clipboard."));
+
+  p.push(test(C, "Clipboard read (execCommand paste)", function(){
+    try{
+      var ok = document.execCommand("paste");
+      return ok ? {s:"bad", d:"execCommand('paste') returned true", f:"Disable on untrusted content."} : {s:"safe", d:"Returned false"};
+    }catch(e){ return {s:"safe", d:"Threw (" + errName(e) + ")"}; }
+  }));
+
+  p.push(capTest(C, "Clipboard write", function(){ return !!(navigator.clipboard && navigator.clipboard.writeText); }, function(){
+    return navigator.clipboard.writeText("webview-checker-test").then(function(){ return {detail:"Wrote a test string"}; });
+  }, "Consider blocking silent clipboard writes from untrusted pages."));
+
+  p.push(capTest(C, "Notifications", function(){ return "Notification" in window; }, function(){
+    return Notification.requestPermission().then(function(r){
+      if(r === "granted") return {detail:"Granted"};
+      throw new Error("permission = " + r);
+    });
+  }, "WebView doesn't support web notifications by default; confirm nothing bridges them."));
+
+  p.push(test(C, "Device motion and orientation events", function(){
+    return new Promise(function(res){
+      var hit = null;
+      function onM(){ if(!hit) hit = "devicemotion"; }
+      function onO(){ if(!hit) hit = "deviceorientation"; }
+      window.addEventListener("devicemotion", onM);
+      window.addEventListener("deviceorientation", onO);
+      setTimeout(function(){
+        window.removeEventListener("devicemotion", onM);
+        window.removeEventListener("deviceorientation", onO);
+        res(hit ? {s:"bad", d:hit + " events are flowing", f:"Gate motion sensors; they enable keystroke and PIN inference."} : {s:"safe", d:"No events within 2.5 s"});
+      }, 2500);
+    });
+  }));
+
+  ["Accelerometer","Gyroscope","Magnetometer","AbsoluteOrientationSensor","AmbientLightSensor","LinearAccelerationSensor"].forEach(function(S){
+    p.push(test(C, "Generic Sensor: " + S, function(){
+      if(!(S in window)) return {s:"na", d:"Not exposed"};
+      return new Promise(function(res){
+        var done = false, sensor;
+        function fin(v){ if(!done){ done = true; try{ sensor && sensor.stop(); }catch(e){} res(v); } }
+        try{
+          sensor = new window[S]({frequency:10});
+          sensor.addEventListener("reading", function(){ fin({s:"bad", d:S + " is delivering readings", f:"Block sensor permissions for untrusted origins."}); });
+          sensor.addEventListener("error", function(ev){ fin({s:"safe", d:"Error: " + errName(ev.error)}); });
+          sensor.start();
+          setTimeout(function(){ fin({s:"safe", d:"No readings within 2.5 s"}); }, 2500);
+        }catch(e){ fin({s:"safe", d:"Blocked (" + errName(e) + ")"}); }
+      });
+    }));
+  });
+
+  p.push(test(C, "Web Bluetooth", function(){
+    if(!navigator.bluetooth) return {s:"na", d:"navigator.bluetooth absent"};
+    return {s:"warn", d:"navigator.bluetooth is present (needs a tap to request a device)", f:"Disable via blink features / permissions policy if not required."};
+  }));
+  p.push(test(C, "WebUSB", function(){
+    return navigator.usb ? {s:"warn", d:"navigator.usb is present", f:"Not needed in most apps."} : {s:"na", d:"Absent"};
+  }));
+  p.push(test(C, "WebHID", function(){
+    return navigator.hid ? {s:"warn", d:"navigator.hid is present", f:"Not needed in most apps."} : {s:"na", d:"Absent"};
+  }));
+  p.push(test(C, "Web Serial", function(){
+    return navigator.serial ? {s:"warn", d:"navigator.serial is present", f:"Not needed in most apps."} : {s:"na", d:"Absent"};
+  }));
+  p.push(test(C, "Web NFC", function(){
+    return ("NDEFReader" in window) ? {s:"warn", d:"NDEFReader is present", f:"Require NFC permission only if the app needs it."} : {s:"na", d:"Absent"};
+  }));
+  p.push(capTest(C, "Web MIDI", function(){ return !!navigator.requestMIDIAccess; }, function(){
+    return navigator.requestMIDIAccess().then(function(){ return {detail:"MIDI access granted"}; });
+  }, "Deny midi permission requests."));
+  p.push(test(C, "Vibration", function(){
+    if(!navigator.vibrate) return {s:"na", d:"Absent"};
+    return {s:"info", d:"navigator.vibrate is available (VIBRATE permission decides)"};
+  }));
+  p.push(test(C, "Battery status", function(){
+    if(!navigator.getBattery) return {s:"na", d:"Absent"};
+    return withTimeout(navigator.getBattery(), 3000).then(function(r){
+      if(r.err || r.__timeout) return {s:"safe", d:"Blocked"};
+      return {s:"warn", d:"Battery level readable: " + Math.round(r.v.level*100) + "%", f:"Battery data aids fingerprinting."};
+    });
+  }));
+  p.push(test(C, "Network information", function(){
+    var c = navigator.connection;
+    if(!c) return {s:"na", d:"Absent"};
+    return {s:"info", d:"type=" + c.type + " effective=" + c.effectiveType + " downlink=" + c.downlink};
+  }));
+  p.push(capTest(C, "Screen wake lock", function(){ return !!(navigator.wakeLock && navigator.wakeLock.request); }, function(){
+    return navigator.wakeLock.request("screen").then(function(l){ l.release(); return {detail:"Wake lock acquired and released"}; });
+  }, "Low risk; deny if your policy forbids it."));
+  p.push(test(C, "Contacts picker", function(){
+    return ("contacts" in navigator) ? {s:"warn", d:"navigator.contacts is present (manual test below)", f:"Not needed in most apps."} : {s:"na", d:"Absent"};
+  }));
+  p.push(test(C, "WebAuthn / credentials", function(){
+    if(!navigator.credentials) return {s:"na", d:"Absent"};
+    return {s:"info", d:"navigator.credentials present. PublicKeyCredential: " + ("PublicKeyCredential" in window)};
+  }));
+  p.push(test(C, "Payment Request API", function(){
+    return ("PaymentRequest" in window) ? {s:"info", d:"Present (manual test below)"} : {s:"na", d:"Absent"};
+  }));
+
+  return Promise.all(p);
+}
+
+/* ---------- 4. File and URL access ---------- */
+function suiteFiles(){
+  var C = "File and URL access";
+  var p = [];
+
+  function fetchTest(name, url, fix){
+    p.push(test(C, name, function(){
+      return withTimeout(fetch(url)).then(function(r){
+        if(r.__timeout) return {s:"safe", d:"No response (blocked or hung)"};
+        if(r.err) return {s:"safe", d:"Blocked (" + errName(r.err) + ")"};
+        var st = r.v.status;
+        if(r.v.type === "opaque" || st === 0) return {s:"warn", d:"Opaque response", f:fix};
+        return {s:"bad", d:"Fetched OK, status " + st, f:fix};
+      });
+    }));
+  }
+  function xhrTest(name, url, fix){
+    p.push(test(C, name, function(){
+      return new Promise(function(res){
+        var x = new XMLHttpRequest();
+        var t = setTimeout(function(){ res({s:"safe", d:"No response"}); }, 4000);
+        x.onload = function(){ clearTimeout(t); res((x.status === 200 || x.status === 0) && x.responseText ? {s:"bad", d:"XHR read " + x.responseText.length + " byte(s)", f:fix} : {s:"safe", d:"Empty or denied, status " + x.status}); };
+        x.onerror = function(){ clearTimeout(t); res({s:"safe", d:"Blocked"}); };
+        try{ x.open("GET", url); x.send(); }catch(e){ clearTimeout(t); res({s:"safe", d:"Blocked (" + errName(e) + ")"}); }
+      });
+    }));
+  }
+  var fileFix = "setAllowFileAccess(false), setAllowFileAccessFromFileURLs(false), setAllowUniversalAccessFromFileURLs(false).";
+  fetchTest("fetch file:///proc/self/cmdline", "file:///proc/self/cmdline", fileFix);
+  fetchTest("fetch file:///system/etc/hosts", "file:///system/etc/hosts", fileFix);
+  fetchTest("fetch file:///android_asset/", "file:///android_asset/", "Serve assets via WebViewAssetLoader and disable file access.");
+  fetchTest("fetch file:///android_res/", "file:///android_res/", "Serve resources via WebViewAssetLoader.");
+  fetchTest("fetch file:///data/data/", "file:///data/data/", fileFix);
+  fetchTest("fetch file:///sdcard/", "file:///sdcard/", fileFix);
+  xhrTest("XHR file:///etc/hosts", "file:///etc/hosts", fileFix);
+  fetchTest("fetch content://", "content://com.android.contacts/contacts", "setAllowContentAccess(false) unless you need content providers.");
+
+  p.push(test(C, "iframe file:// embedding", function(){
+    return new Promise(function(res){
+      var f = document.createElement("iframe");
+      f.style.display = "none";
+      var t = setTimeout(function(){ cleanup(); res({s:"safe", d:"Did not load"}); }, 3000);
+      function cleanup(){ clearTimeout(t); if(f.parentNode) f.parentNode.removeChild(f); }
+      f.onload = function(){
+        var readable = false;
+        try{ readable = !!f.contentDocument && f.contentDocument.body && f.contentDocument.body.innerText.length > 0; }catch(e){}
+        cleanup();
+        res(readable ? {s:"bad", d:"Cross-scheme file iframe is readable", f:fileFix} : {s:"safe", d:"Loaded but content not readable"});
+      };
+      f.onerror = function(){ cleanup(); res({s:"safe", d:"Blocked"}); };
+      f.src = "file:///etc/hosts";
+      document.body.appendChild(f);
+    });
+  }));
+
+  p.push(test(C, "Mixed content (http from this page)", function(){
+    if(location.protocol !== "https:") return {s:"na", d:"Page isn't https, so mixed content doesn't apply"};
+    return withTimeout(fetch("http://example.com/", {mode:"no-cors"}), 5000).then(function(r){
+      if(r.__timeout) return {s:"info", d:"Timed out (offline?)"};
+      return r.err ? {s:"safe", d:"Blocked (" + errName(r.err) + ")"} : {s:"bad", d:"Cleartext request allowed from https page", f:"setMixedContentMode(MIXED_CONTENT_NEVER_ALLOW)."};
+    });
+  }));
+
+  p.push(test(C, "Cleartext traffic (http://)", function(){
+    return withTimeout(fetch("http://example.com/", {mode:"no-cors"}), 5000).then(function(r){
+      if(r.__timeout) return {s:"info", d:"Timed out (offline?)"};
+      return r.err ? {s:"safe", d:"Blocked (" + errName(r.err) + ")"} : {s:"warn", d:"Cleartext HTTP allowed", f:"Set cleartextTrafficPermitted=false in network_security_config.xml."};
+    });
+  }));
+
+  p.push(test(C, "Local network access", function(){
+    return withTimeout(fetch("http://127.0.0.1:1/", {mode:"no-cors"}), 3000).then(function(r){
+      if(r.__timeout) return {s:"info", d:"No response"};
+      return r.err ? {s:"info", d:"Connection refused or blocked (" + errName(r.err) + "). A closed port can't tell the two apart."} : {s:"warn", d:"Reached loopback"};
+    });
+  }));
+
+  p.push(test(C, "WebSocket (cleartext)", function(){
+    return new Promise(function(res){
+      var ws;
+      try{ ws = new WebSocket("ws://127.0.0.1:1/"); }catch(e){ return res({s:"safe", d:"Blocked (" + errName(e) + ")"}); }
+      var t = setTimeout(function(){ try{ws.close();}catch(e){} res({s:"info", d:"No result"}); }, 3000);
+      ws.onerror = function(){ clearTimeout(t); res({s:"info", d:"Connection failed (port closed)"}); };
+      ws.onopen = function(){ clearTimeout(t); ws.close(); res({s:"warn", d:"Opened"}); };
+    });
+  }));
+
+  return Promise.all(p);
+}
+
+/* ---------- 5. JavaScript bridge ---------- */
+function suiteBridge(){
+  var C = "JavaScript bridge";
+  var p = [];
+  var known = ["Android","AndroidInterface","AndroidBridge","JSInterface","jsInterface","JavaScriptInterface",
+               "NativeBridge","nativeBridge","__nativeBridge","AppBridge","Bridge","bridge","HybridBridge",
+               "MobileApp","mobile","app","native","HTMLOUT","injectedObject","ReactNativeWebView",
+               "flutter_inappwebview","Capacitor","cordova","AndroidNative","WebViewJavascriptBridge",
+               "JSBridge","webview","WebAppInterface","Callback","Interface","console_bridge"];
+
+  p.push(test(C, "Named bridge objects", function(){
+    var hits = [];
+    known.forEach(function(n){
+      try{
+        var v = window[n];
+        if(v !== undefined && v !== null) hits.push(n + " (" + typeof v + ")");
+      }catch(e){}
+    });
+    return hits.length
+      ? {s:"bad", d:"Found: " + hits.join(", "), f:"Remove addJavascriptInterface for pages that don't need it, or load only trusted origins."}
+      : {s:"safe", d:"None of " + known.length + " common names present"};
+  }));
+
+  p.push(test(C, "Non-standard window properties", function(){
+    var frame = document.createElement("iframe");
+    frame.style.display = "none";
+    frame.setAttribute("sandbox", "allow-same-origin");
+    frame.srcdoc = "<!doctype html><title>x</title>";
+    document.body.appendChild(frame);
+    return new Promise(function(res){
+      setTimeout(function(){
+        var base = {};
+        try{ Object.getOwnPropertyNames(frame.contentWindow).forEach(function(k){ base[k] = 1; }); }catch(e){}
+        document.body.removeChild(frame);
+        var extra = [];
+        Object.getOwnPropertyNames(window).forEach(function(k){
+          if(base[k]) return;
+          if(/^(webkit|on|_|\d)/.test(k)) return;
+          var v; try{ v = window[k]; }catch(e){ return; }
+          if(v === window || v === null || v === undefined) return;
+          if(typeof v === "object" || typeof v === "function") extra.push(k);
+        });
+        res(extra.length
+          ? {s:"warn", d:"Unexpected globals vs a clean frame: " + extra.slice(0,30).join(", ") + (extra.length>30 ? " …":""), f:"Review each for native-injected objects. Bridges added with addJavascriptInterface appear here."}
+          : {s:"safe", d:"No extra globals relative to a clean frame"});
+      }, 250);
+    });
+  }));
+
+  p.push(test(C, "Java reflection exposure", function(){
+    var vuln = [];
+    var names = Object.getOwnPropertyNames(window);
+    names.forEach(function(k){
+      var v; try{ v = window[k]; }catch(e){ return; }
+      if(v && (typeof v === "object" || typeof v === "function")){
+        try{ if(typeof v.getClass === "function") vuln.push(k); }catch(e){}
+      }
+    });
+    return vuln.length
+      ? {s:"bad", d:"getClass() is reachable on: " + vuln.join(", ") + ". This is the classic reflection hole on API < 17.", f:"Annotate bridge methods with @JavascriptInterface and target API 17+."}
+      : {s:"safe", d:"No object exposes getClass()"};
+  }));
+
+  p.push(test(C, "Framework message handlers", function(){
+    var hits = [];
+    try{ if(window.webkit && window.webkit.messageHandlers) hits.push("webkit.messageHandlers"); }catch(e){}
+    try{ if(window.chrome && window.chrome.webview) hits.push("chrome.webview"); }catch(e){}
+    try{ if(window.ReactNativeWebView) hits.push("ReactNativeWebView"); }catch(e){}
+    try{ if(window.flutter_inappwebview) hits.push("flutter_inappwebview"); }catch(e){}
+    try{ if(window.Capacitor) hits.push("Capacitor"); }catch(e){}
+    try{ if(window.cordova) hits.push("cordova"); }catch(e){}
+    return hits.length ? {s:"warn", d:"Detected: " + hits.join(", "), f:"Restrict which origins can talk to the bridge."} : {s:"safe", d:"None detected"};
+  }));
+
+  p.push(test(C, "WebMessageListener / postMessage ports", function(){
+    return {s:"info", d:"Can't be probed from JS. Check allowedOriginRules on addWebMessageListener in your code."};
+  }));
+
+  p.push(test(C, "Native function tampering", function(){
+    var bad = [];
+    ["fetch","XMLHttpRequest","open","alert","prompt","confirm"].forEach(function(n){
+      var f = n === "open" ? window.open : window[n];
+      if(typeof f === "function" && !/\[native code\]/.test(Function.prototype.toString.call(f))) bad.push(n);
+    });
+    return bad.length ? {s:"warn", d:"Patched by script: " + bad.join(", "), f:"Something injected into the page overrides built-ins. Verify it is yours."} : {s:"safe", d:"All inspected built-ins are native"};
+  }));
+
+  return Promise.all(p);
+}
+
+/* ---------- 6. Storage and platform ---------- */
+function suiteStorage(){
+  var C = "Storage and platform";
+  var p = [];
+  function bool(name, fn, onFix){
+    p.push(test(C, name, function(){
+      var v; try{ v = fn(); }catch(e){ return {s:"info", d:"Unavailable (" + errName(e) + ")"}; }
+      return {s:"info", d: v ? "Enabled" : "Disabled"};
+    }));
+  }
+  bool("localStorage / DOM storage", function(){ localStorage.setItem("_t","1"); localStorage.removeItem("_t"); return true; });
+  bool("sessionStorage", function(){ sessionStorage.setItem("_t","1"); sessionStorage.removeItem("_t"); return true; });
+  bool("Cookies", function(){ document.cookie = "_t=1; path=/"; var ok = document.cookie.indexOf("_t=1") > -1; document.cookie = "_t=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"; return ok; });
+  bool("IndexedDB", function(){ return !!window.indexedDB; });
+  bool("WebSQL (deprecated)", function(){ return !!window.openDatabase; });
+  bool("Cache API", function(){ return !!window.caches; });
+  bool("Service workers", function(){ return !!navigator.serviceWorker; });
+  bool("WebAssembly", function(){ return typeof WebAssembly === "object"; });
+  bool("SharedArrayBuffer / cross-origin isolated", function(){ return window.crossOriginIsolated === true; });
+
+  p.push(test(C, "WebRTC local IP leak", function(){
+    if(!window.RTCPeerConnection) return {s:"na", d:"RTCPeerConnection absent"};
+    return new Promise(function(res){
+      var ips = {}, pc;
+      try{ pc = new RTCPeerConnection({iceServers:[]}); }catch(e){ return res({s:"safe", d:"Blocked (" + errName(e) + ")"}); }
+      pc.createDataChannel("x");
+      pc.onicecandidate = function(e){
+        if(!e.candidate) return;
+        var m = e.candidate.candidate.match(/(\d{1,3}(?:\.\d{1,3}){3})/);
+        if(m) ips[m[1]] = 1;
+      };
+      pc.createOffer().then(function(o){ return pc.setLocalDescription(o); }).catch(function(){});
+      setTimeout(function(){
+        try{ pc.close(); }catch(e){}
+        var l = Object.keys(ips);
+        res(l.length ? {s:"warn", d:"Local address(es) exposed: " + l.join(", "), f:"Chromium normally masks these with mDNS. Raw IPs hint at an old WebView."} : {s:"safe", d:"No raw local IPs (masked or blocked)"});
+      }, 2000);
+    });
+  }));
+
+  p.push(test(C, "WebGL renderer fingerprint", function(){
+    try{
+      var c = document.createElement("canvas");
+      var gl = c.getContext("webgl") || c.getContext("experimental-webgl");
+      if(!gl) return {s:"na", d:"WebGL unavailable"};
+      var ext = gl.getExtension("WEBGL_debug_renderer_info");
+      if(!ext) return {s:"safe", d:"Renderer info hidden"};
+      return {s:"info", d:gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) + " / " + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)};
+    }catch(e){ return {s:"na", d:errName(e)}; }
+  }));
+
+  p.push(test(C, "Screen and device metrics", function(){
+    return {s:"info", d:screen.width + "x" + screen.height + " @" + window.devicePixelRatio + "x, " + (navigator.hardwareConcurrency||"?") + " cores, " + (navigator.deviceMemory||"?") + " GB, lang " + navigator.language};
+  }));
+
+  p.push(test(C, "File System Access API", function(){
+    return window.showOpenFilePicker ? {s:"warn", d:"showOpenFilePicker present (manual test below)", f:"Not usually needed in WebView."} : {s:"na", d:"Absent"};
+  }));
+
+  p.push(test(C, "Remote debugging hint", function(){
+    return {s:"info", d:"Can't be read from JS. In code, ensure WebView.setWebContentsDebuggingEnabled(false) in release builds."};
+  }));
+
+  return Promise.all(p);
+}
+
+/* ---------- 7. Review checklist (static, native-side) ---------- */
+var CHECKLIST = [
+  "setJavaScriptEnabled(true) only for trusted origins",
+  "setAllowFileAccess(false)",
+  "setAllowFileAccessFromFileURLs(false) and setAllowUniversalAccessFromFileURLs(false)",
+  "setAllowContentAccess(false) unless required",
+  "setMixedContentMode(MIXED_CONTENT_NEVER_ALLOW)",
+  "setSafeBrowsingEnabled(true)",
+  "setWebContentsDebuggingEnabled(false) in release",
+  "Override shouldOverrideUrlLoading and allow-list schemes (block intent://, file://, javascript:)",
+  "Override onPermissionRequest, onGeolocationPermissionsShowPrompt and onShowFileChooser with explicit decisions",
+  "Verify origins before exposing any @JavascriptInterface, or use WebViewCompat.addWebMessageListener with allowedOriginRules",
+  "Handle onReceivedSslError by cancelling, never proceed()",
+  "Disable setSavePassword / form data autofill if not required",
+  "Clear cache, cookies and WebStorage on logout",
+  "Set FLAG_SECURE for sensitive screens",
+  "Use WebViewAssetLoader instead of file:// for local content",
+  "Set a network security config with cleartextTrafficPermitted=false",
+  "Keep Android System WebView updated and check WebViewCompat.getCurrentWebViewPackage()"
+];
+
+/* ======================================================
+   MANUAL TESTS
+   ====================================================== */
+var mlog = $("mlog");
+function log(msg){
+  if(mlog.getAttribute("data-init") !== "1"){ mlog.textContent = ""; mlog.setAttribute("data-init","1"); }
+  mlog.textContent += new Date().toLocaleTimeString() + "  " + msg + "\n";
+  mlog.scrollTop = mlog.scrollHeight;
+}
+var manual = {
+  screen: function(){
+    if(!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)) return log("[SCREEN] getDisplayMedia not available (blocked ✔)");
+    withTimeout(navigator.mediaDevices.getDisplayMedia({video:true}), 10000).then(function(r){
+      if(r.__timeout) return log("[SCREEN] no answer, prompt may be hung ⚠");
+      if(r.err) return log("[SCREEN] blocked ✔ (" + errName(r.err) + ")");
+      r.v.getTracks().forEach(function(t){ t.stop(); });
+      log("[SCREEN] capture started ❌");
+    });
+  },
+  picker: function(){
+    var i = document.createElement("input"); i.type = "file"; i.accept = "*/*";
+    i.onchange = function(){ log("[FILE CHOOSER] chooser opened and returned " + i.files.length + " file(s) ❌"); };
+    i.oncancel = function(){ log("[FILE CHOOSER] cancelled"); };
+    i.click();
+    setTimeout(function(){ log("[FILE CHOOSER] click dispatched. If nothing opened, onShowFileChooser is blocking ✔"); }, 800);
+  },
+  fsa: function(){
+    if(!window.showOpenFilePicker) return log("[FSA] showOpenFilePicker absent ✔");
+    window.showOpenFilePicker().then(function(){ log("[FSA] picker returned a handle ❌"); }, function(e){ log("[FSA] blocked ✔ (" + errName(e) + ")"); });
+  },
+  popup: function(){
+    var w = null;
+    try{ w = window.open("about:blank", "_blank"); }catch(e){}
+    log(w ? "[POPUP] window.open returned a window ❌ (multiple windows enabled)" : "[POPUP] window.open returned null ✔");
+    try{ w && w.close(); }catch(e){}
+  },
+  intent: function(){
+    log("[INTENT] navigating to an intent:// URL. If another app opens, the scheme is not filtered ❌");
+    location.href = "intent://example.com/#Intent;scheme=https;package=com.android.chrome;end";
+  },
+  scheme: function(){
+    log("[SCHEME] navigating to market:// . If Play Store opens, custom schemes are not filtered ❌");
+    location.href = "market://details?id=com.android.chrome";
+  },
+  tel: function(){
+    log("[TEL] navigating to tel: . If the dialler opens, tel: is allowed ⚠");
+    location.href = "tel:+10000000000";
+  },
+  download: function(){
+    try{
+      var b = new Blob(["webview checker test"], {type:"text/plain"});
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(b); a.download = "webview-test.txt";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      log("[DOWNLOAD] click dispatched. A saved file means setDownloadListener is absent or permissive ⚠");
+    }catch(e){ log("[DOWNLOAD] blocked ✔ (" + errName(e) + ")"); }
+  },
+  dialogs: function(){
+    var t0 = Date.now();
+    try{ alert("alert test"); }catch(e){}
+    var d1 = Date.now() - t0;
+    var c = null, p = null;
+    try{ c = confirm("confirm test"); }catch(e){}
+    try{ p = prompt("prompt test", "x"); }catch(e){}
+    log("[DIALOGS] alert took " + d1 + " ms, confirm=" + c + ", prompt=" + p + ". Instant returns suggest onJsAlert/onJsConfirm/onJsPrompt are overridden.");
+  },
+  share: function(){
+    if(!navigator.share) return log("[SHARE] navigator.share absent ✔");
+    navigator.share({title:"WebView test", text:"test"}).then(function(){ log("[SHARE] share sheet opened ⚠"); }, function(e){ log("[SHARE] " + errName(e)); });
+  },
+  fullscreen: function(){
+    var el = document.documentElement;
+    var f = el.requestFullscreen || el.webkitRequestFullscreen;
+    if(!f) return log("[FULLSCREEN] API absent ✔");
+    var r = f.call(el);
+    if(r && r.then) r.then(function(){ log("[FULLSCREEN] entered ⚠"); setTimeout(function(){ document.exitFullscreen && document.exitFullscreen(); }, 800); }, function(e){ log("[FULLSCREEN] blocked ✔ (" + errName(e) + ")"); });
+  },
+  pointerlock: function(){
+    var el = document.body;
+    if(!el.requestPointerLock) return log("[POINTER LOCK] absent ✔");
+    try{ el.requestPointerLock(); setTimeout(function(){ log(document.pointerLockElement ? "[POINTER LOCK] acquired ⚠" : "[POINTER LOCK] not acquired ✔"); document.exitPointerLock && document.exitPointerLock(); }, 500); }catch(e){ log("[POINTER LOCK] blocked ✔"); }
+  },
+  payment: function(){
+    if(!window.PaymentRequest) return log("[PAYMENT] PaymentRequest absent ✔");
+    try{
+      var pr = new PaymentRequest([{supportedMethods:"https://google.com/pay"}], {total:{label:"t", amount:{currency:"USD", value:"0.01"}}});
+      pr.canMakePayment().then(function(v){ log("[PAYMENT] canMakePayment = " + v + " ⚠"); }, function(e){ log("[PAYMENT] blocked ✔ (" + errName(e) + ")"); });
+    }catch(e){ log("[PAYMENT] blocked ✔ (" + errName(e) + ")"); }
+  },
+  contacts: function(){
+    if(!(navigator.contacts && navigator.contacts.select)) return log("[CONTACTS] picker absent ✔");
+    navigator.contacts.select(["name"]).then(function(){ log("[CONTACTS] picker returned ❌"); }, function(e){ log("[CONTACTS] blocked ✔ (" + errName(e) + ")"); });
+  }
+};
+document.querySelectorAll("[data-m]").forEach(function(b){
+  b.addEventListener("click", function(){ try{ manual[b.getAttribute("data-m")](); }catch(e){ log("[" + b.getAttribute("data-m") + "] threw " + errName(e)); } });
+});
+
+/* ======================================================
+   REPORT
+   ====================================================== */
+function buildReport(){
+  var c = {};
+  results.forEach(function(r){ c[r.status] = (c[r.status]||0) + 1; });
+  return JSON.stringify({
+    tool: "webview-security-checker",
+    generated: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    origin: String(location.origin),
+    summary: c,
+    results: results.map(function(r){ return {category:r.category, name:r.name, status:r.status, detail:r.detail, fix:r.fix||undefined}; }),
+    nativeSideChecklist: CHECKLIST
+  }, null, 2);
+}
+$("copy").addEventListener("click", function(){
+  var txt = buildReport();
+  function legacy(){
+    var ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select();
+    var ok = false; try{ ok = document.execCommand("copy"); }catch(e){}
+    document.body.removeChild(ta);
+    $("copy").textContent = ok ? "Copied" : "Copy failed";
+    setTimeout(function(){ $("copy").textContent = "Copy JSON"; }, 1500);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ $("copy").textContent = "Copied"; setTimeout(function(){ $("copy").textContent = "Copy JSON"; }, 1500); }, legacy);
+  } else legacy();
+});
+$("dl").addEventListener("click", function(){
+  try{
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([buildReport()], {type:"application/json"}));
+    a.download = "webview-report.json";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }catch(e){ log("[SAVE] " + errName(e)); }
+});
+
+/* ======================================================
+   RUN
+   ====================================================== */
+function runAll(){
+  results.length = 0;
+  out.textContent = "";
+  Object.keys(cats).forEach(function(k){ delete cats[k]; });
+  refreshSummary();
+  suiteEnvironment()
+    .then(suitePermissionsAPI)
+    .then(suiteBridge)
+    .then(suiteFiles)
+    .then(suiteStorage)
+    .then(suiteCapabilities)
+    .then(function(){
+      var h = mk("h2", null, "Native-side checklist");
+      var box = mk("div", "cat");
+      CHECKLIST.forEach(function(t){
+        var row = mk("div", "row");
+        row.appendChild(mk("span", "badge info", "Verify"));
+        row.appendChild(mk("div", "detail", t));
+        box.appendChild(row);
+      });
+      out.appendChild(h); out.appendChild(box);
+      refreshSummary();
+    });
+}
+$("rerun").addEventListener("click", runAll);
+runAll();
+
+})();
+</script>
 </body>
 </html>
