@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Android WebView JS Explorer</title>
+<style>
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    padding: 30px 30px 60px;
+    background: #0d1117;
+    color: #e6edf3;
+    font-family: Consolas, monospace;
+}
+.container { max-width: 1100px; margin: auto; }
+h1 { margin: 0 0 5px; }
+.subtitle { color: #8b949e; margin-bottom: 25px; }
+.card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+h2 { margin-top: 0; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.step-note { color: #8b949e; font-size: 13px; margin: -6px 0 14px; line-height: 1.5; }
+.step-note b { color: #e6edf3; }
+input {
+    width: 100%;
+    padding: 11px;
+    margin: 6px 0 12px;
+    background: #0d1117;
+    color: #fff;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    font-family: Consolas, monospace;
+}
+input:focus { outline: none; border-color: #58a6ff; }
+label { display: block; color: #8b949e; margin-top: 10px; font-size: 13px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+button {
+    padding: 10px 18px;
+    background: #21262d;
+    color: white;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: Consolas, monospace;
+}
+button:hover { background: #30363d; }
+button.primary { background: #1f6feb; border-color: #1f6feb; }
+button.primary:hover { background: #388bfd; }
+button.small { padding: 5px 10px; font-size: 12px; }
+pre {
+    background: #010409;
+    border: 1px solid #30363d;
+    padding: 15px;
+    border-radius: 5px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+}
+.results { margin-top: 15px; }
+.result {
+    background: #010409;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    padding: 15px;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.result-title {
+    color: #8b949e;
+    font-size: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.empty { color: #8b949e; }
+
+/* property list */
+.prop-list {
+    max-height: 340px;
+    overflow-y: auto;
+    background: #010409;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+.prop-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 12px;
+    border-bottom: 1px solid #161b22;
+    cursor: pointer;
+}
+.prop-row:last-child { border-bottom: none; }
+.prop-row:hover { background: #161b22; }
+.prop-name { color: #e6edf3; }
+.prop-name.fn { color: #58a6ff; }
+.tag {
+    font-size: 10.5px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    white-space: nowrap;
+}
+.tag.fn { color: #58a6ff; border-color: #1f6feb; }
+.tag.obj { color: #d2a8ff; border-color: #6e40c9; }
+.tag.str { color: #7ee787; border-color: #238636; }
+.tag.num { color: #ffa657; border-color: #9a6700; }
+.tag.bool { color: #ffa657; border-color: #9a6700; }
+.tag.other { color: #8b949e; }
+
+/* origin badges — where a global actually came from */
+.tag.browser { color: #8b949e; border-color: #30363d; }
+.tag.custom  { color: #d2a8ff; border-color: #6e40c9; background: rgba(210,168,255,0.07); }
+.tag.bridge  { color: #f0883e; border-color: #9a4a00; background: rgba(240,136,62,0.1); font-weight: bold; }
+.tag.java    { color: #ff7b72; border-color: #8b1d1d; background: rgba(255,123,114,0.1); font-weight: bold; }
+
+.count { color: #8b949e; font-size: 12px; font-weight: normal; }
+.hint {
+    font-size: 12px;
+    color: #8b949e;
+    margin-top: 6px;
+}
+.hint code { color: #e6edf3; }
+.chain-btn { margin-top: 10px; }
+
+/* legend */
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 11.5px;
+    color: #8b949e;
+    margin: 10px 0 4px;
+    line-height: 1.6;
+}
+.legend .tag { margin-right: 4px; }
+
+/* filter chips */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 4px; }
+.chip {
+    padding: 5px 11px;
+    border: 1px solid #30363d;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #8b949e;
+    background: #0d1117;
+    font-family: Consolas, monospace;
+}
+.chip:hover { border-color: #58a6ff; color: #e6edf3; }
+.chip.active { color: #58a6ff; border-color: #1f6feb; background: rgba(31,111,235,0.12); }
+
+/* origin banner inside step 2 results */
+.banner {
+    padding: 10px 12px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+.banner .evline { margin-top: 2px; }
+.banner.browser { background: rgba(88,166,255,0.08); border: 1px solid #1f6feb; color: #79b8ff; }
+.banner.custom  { background: rgba(210,168,255,0.08); border: 1px solid #6e40c9; color: #d2a8ff; }
+.banner.bridge  { background: rgba(240,136,62,0.1); border: 1px solid #9a4a00; color: #f0883e; }
+.banner.java    { background: rgba(255,123,114,0.1); border: 1px solid #8b1d1d; color: #ff7b72; }
+.banner b { color: inherit; }
+
+/* step 2 member rows, with room for a quick-test result */
+.member-row {
+    padding: 8px 12px;
+    border-bottom: 1px solid #161b22;
+}
+.member-row:last-child { border-bottom: none; }
+.member-row:hover { background: #161b22; }
+.member-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.member-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.member-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.test-result {
+    margin-top: 7px;
+    padding: 8px 10px;
+    background: #010409;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.test-result.ok { border-color: #238636; color: #7ee787; }
+.test-result.err { border-color: #8b1d1d; color: #ff7b72; }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+    <h1>Android WebView JS Explorer</h1>
+    <div class="subtitle">Browse window → inspect an object → call one of its functions, step by step</div>
+
+    <!-- ================================================= -->
+    <!-- 1. WINDOW -->
+    <!-- ================================================= -->
+    <div class="card">
+        <h2>1. Window properties <span class="count" id="windowCount"></span></h2>
+        <div class="step-note">
+            Everything attached to <code>window</code> — native Android bridges show up here too.
+            <b>Functions are highlighted blue.</b> Each entry is also checked against a clean, blank
+            window so bridges and page-defined globals stand out from standard browser APIs.
+            Click any row to send it straight into step 2.
+        </div>
+
+        <div class="legend" id="legend">
+            <span><span class="tag browser">browser</span>standard WebView / Chromium API</span>
+            <span><span class="tag custom">page script</span>not standard — defined by this page's own JS</span>
+            <span><span class="tag bridge">JS interface?</span>a non-standard object with callable methods — the shape of an addJavascriptInterface() bridge</span>
+            <span><span class="tag java">Java object</span>exposes getClass() — confirmed native reflection, not just JS</span>
+        </div>
+
+        <div class="chips">
+            <button class="chip active" data-filter-chip="all">All</button>
+            <button class="chip" data-filter-chip="nonstandard">Non-standard only</button>
+            <button class="chip" data-filter-chip="bridge">Possible interfaces only</button>
+        </div>
+
+        <input id="windowFilter" placeholder="Filter (e.g. android, bridge, interface)">
+
+        <pre>Object.getOwnPropertyNames(window).forEach(name => console.log(name, typeof window[name]));</pre>
+
+        <div id="windowResults" class="results">
+            <div class="empty">Running...</div>
+        </div>
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- 2. OBJECT -->
+    <!-- ================================================= -->
+    <div class="card">
+        <h2>2. Inspect an object</h2>
+        <div class="step-note">
+            Lists everything on <b>window.&lt;name&gt;</b> and says whether each member is a
+            <b style="color:#58a6ff">function</b> you can call, or a plain value.
+            A banner up top flags whether the object itself looks like a standard browser API,
+            this page's own script, or a possible native JS interface — with the evidence for that call.
+            Click a function's "Step 3 →" to send it there, or use <b>Quick test</b> to call it right here with no arguments.
+        </div>
+
+        <label>Object name</label>
+        <input id="objectName" placeholder="Example: AndroidInterface">
+
+        <pre id="command2"></pre>
+
+        <div class="row">
+            <button class="primary" onclick="run2()">Inspect</button>
+        </div>
+
+        <div id="objectResults" class="results"></div>
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- 3. METHOD -->
+    <!-- ================================================= -->
+    <div class="card">
+        <h2>3. Call a method</h2>
+        <div class="step-note">
+            Calls <b>window.&lt;object&gt;.&lt;method&gt;(...)</b> and shows the return value.
+            Leave arguments empty for a no-argument call, like <code>getDeviceInfo()</code>.
+        </div>
+
+        <label>Object name</label>
+        <input id="objectName3" placeholder="Example: AndroidInterface">
+
+        <label>Method name</label>
+        <input id="methodName3" placeholder="Example: getDeviceInfo">
+
+        <label>Arguments (optional, comma-separated — JSON values)</label>
+        <input id="argsInput3" placeholder='Example: "hello", 42, true   —  leave blank for none'>
+
+        <pre id="command3"></pre>
+
+        <div class="row">
+            <button class="primary" onclick="run3()">Call</button>
+        </div>
+
+        <div class="hint">
+            Examples: <code>"some text", 5</code> calls <code>method("some text", 5)</code>.
+            <code>{"id":1}</code> calls <code>method({id:1})</code>. Quote strings; numbers/booleans/objects don't need quotes.
+        </div>
+
+        <div id="methodResults" class="results"></div>
+    </div>
+
+</div>
+
+<script>
+
+/*
+=========================================================
+TYPE HELPERS
+=========================================================
+*/
+
+function typeOf(value) {
+    if (value === null) return "other";
+    const t = typeof value;
+    if (t === "function") return "fn";
+    if (t === "object") return "obj";
+    if (t === "string") return "str";
+    if (t === "number") return "num";
+    if (t === "boolean") return "bool";
+    return "other";
+}
+
+function typeLabel(tag) {
+    return {
+        fn: "function",
+        obj: "object",
+        str: "string",
+        num: "number",
+        bool: "boolean",
+        other: "other"
+    }[tag];
+}
+
+
+/*
+=========================================================
+1. WINDOW — clickable, filterable, typed
+=========================================================
+*/
+
+let windowProps = [];
+
+// Function declarations in this script become properties on window too
+// (run1, updateCommand2, etc). They aren't part of the WebView/browser —
+// they're this tool's own UI code, so keep them out of the list below.
+const OWN_TOOL_FUNCTIONS = new Set([
+    "typeOf", "typeLabel",
+    "run1", "renderWindowList",
+    "run2",
+    "run3", "parseArgs", "safeStringify",
+    "addResult", "escapeHtml",
+    "updateCommand2", "updateCommand3",
+    "classifyOrigin", "buildBaseline", "applyFilters"
+]);
+
+
+/*
+=========================================================
+ORIGIN CLASSIFIER
+=========================================================
+Nothing in plain JS can prove a value came from Java —
+addJavascriptInterface() just hands the engine a JS-shaped
+object. So instead of guessing from a signature, this diffs
+every window property against a genuinely blank window and
+layers on a couple of strong, explainable signals:
+
+ 1. Not present on a blank window           -> not a standard
+                                                browser/Chromium API
+ 2. ...and it's an object with callable
+    methods on it                           -> shaped like a
+                                                addJavascriptInterface() bridge
+ 3. ...and one of those methods is
+    getClass()                              -> confirmed native
+                                                Java reflection is reachable
+ 4. Its name matches a common bridge
+    naming convention (AndroidInterface,
+    JSBridge, ReactNativeWebView, ...)       -> extra supporting evidence
+
+Each row shows exactly which of these fired, so a flag is
+never presented as more certain than the evidence behind it.
+*/
+
+const KNOWN_BRIDGE_NAMES = new Set([
+    "android", "androidinterface", "androidbridge", "jsinterface",
+    "javascriptinterface", "nativebridge", "appbridge", "bridge",
+    "hybridbridge", "mobileapp", "mobile", "native", "htmlout",
+    "injectedobject", "reactnativewebview", "flutter_inappwebview",
+    "capacitor", "cordova", "androidnative", "webviewjavascriptbridge",
+    "jsbridge", "webappinterface"
+]);
+
+// Used only if the sandboxed-iframe baseline below can't be built
+// (e.g. iframes blocked). Deliberately small — under-flagging as
+// "custom" is safer than over-flagging a real browser API as a bridge.
+const FALLBACK_BASELINE = new Set([
+    "window", "self", "document", "name", "location", "history",
+    "navigator", "external", "screen", "innerWidth", "innerHeight",
+    "scrollX", "scrollY", "top", "parent", "opener", "frames", "length",
+    "closed", "frameElement", "origin", "isSecureContext", "crypto",
+    "indexedDB", "sessionStorage", "localStorage", "performance",
+    "console", "fetch", "caches", "customElements", "devicePixelRatio",
+    "alert", "confirm", "prompt", "print", "chrome", "visualViewport",
+    "speechSynthesis", "onload", "onerror", "oncontextmenu"
+]);
+
+let BASELINE = FALLBACK_BASELINE;
+
+function buildBaseline() {
+    return new Promise((resolve) => {
+        let settled = false;
+        function done(set) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            if (frame.parentNode) frame.parentNode.removeChild(frame);
+            resolve(set);
+        }
+        const timer = setTimeout(() => done(FALLBACK_BASELINE), 1500);
+
+        let frame;
+        try {
+            frame = document.createElement("iframe");
+            frame.style.display = "none";
+            frame.setAttribute("sandbox", "allow-same-origin");
+            frame.addEventListener("load", () => {
+                try {
+                    done(new Set(Object.getOwnPropertyNames(frame.contentWindow)));
+                } catch (e) {
+                    done(FALLBACK_BASELINE);
+                }
+            });
+            frame.srcdoc = "<!doctype html><title>baseline</title>";
+            document.body.appendChild(frame);
+        } catch (e) {
+            done(FALLBACK_BASELINE);
+        }
+    });
+}
+
+function classifyOrigin(name, value, tag) {
+    if (BASELINE.has(name)) {
+        return { badgeTag: "browser", badgeLabel: "browser", evidence: [] };
+    }
+
+    const evidence = ["Not present on a clean, blank window — added by this page or the native app."];
+    let badgeTag = "custom";
+    let badgeLabel = "page script";
+
+    if (tag === "obj" && value) {
+        let methods = [];
+        try {
+            methods = Object.getOwnPropertyNames(value).filter((n) => {
+                try { return typeof value[n] === "function"; } catch (e) { return false; }
+            });
+        } catch (e) { /* some host objects refuse enumeration */ }
+
+        if (methods.length) {
+            badgeTag = "bridge";
+            badgeLabel = "JS interface?";
+            evidence.push(
+                methods.length + " callable method(s) on it: " +
+                methods.slice(0, 6).join(", ") + (methods.length > 6 ? "…" : "")
+            );
+        }
+
+        try {
+            if (typeof value.getClass === "function") {
+                badgeTag = "java";
+                badgeLabel = "Java object";
+                evidence.push("Exposes getClass() — raw Java reflection is reachable from this page.");
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    if (KNOWN_BRIDGE_NAMES.has(name.toLowerCase())) {
+        if (badgeTag === "custom") { badgeTag = "bridge"; badgeLabel = "JS interface?"; }
+        evidence.push("Name matches a common addJavascriptInterface()/bridge naming convention.");
+    }
+
+    return { badgeTag, badgeLabel, evidence };
+}
+
+
+function run1() {
+    const results = document.getElementById("windowResults");
+    const names = Object.getOwnPropertyNames(window)
+        .filter(name => !OWN_TOOL_FUNCTIONS.has(name));
+
+    windowProps = names.map(name => {
+        let value, tag;
+        try {
+            value = window[name];
+            tag = typeOf(value);
+        } catch (e) {
+            value = undefined;
+            tag = "other";
+        }
+        const origin = classifyOrigin(name, value, tag);
+        return { name, tag, origin };
+    });
+
+    const bridgeCount = windowProps.filter(p => p.origin.badgeTag === "bridge" || p.origin.badgeTag === "java").length;
+    document.getElementById("windowCount").textContent =
+        "(" + windowProps.length + " total, " +
+        windowProps.filter(p => p.tag === "fn").length + " functions, " +
+        bridgeCount + " possible interface" + (bridgeCount === 1 ? "" : "s") + ")";
+
+    applyFilters();
+}
+
+function renderWindowList(list) {
+    const results = document.getElementById("windowResults");
+    results.innerHTML = "";
+
+    if (list.length === 0) {
+        results.innerHTML = '<div class="empty">No properties match that filter.</div>';
+        return;
+    }
+
+    const box = document.createElement("div");
+    box.className = "prop-list";
+
+    list.forEach(p => {
+        const row = document.createElement("div");
+        row.className = "prop-row";
+        row.title = p.origin.evidence.length
+            ? p.origin.evidence.join(" · ")
+            : "Click to inspect window." + p.name + " in step 2";
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "prop-name" + (p.tag === "fn" ? " fn" : "");
+        nameEl.textContent = p.name;
+
+        const tagsWrap = document.createElement("span");
+        tagsWrap.style.display = "flex";
+        tagsWrap.style.gap = "6px";
+
+        const tagEl = document.createElement("span");
+        tagEl.className = "tag " + p.tag;
+        tagEl.textContent = typeLabel(p.tag);
+        tagsWrap.appendChild(tagEl);
+
+        const originEl = document.createElement("span");
+        originEl.className = "tag " + p.origin.badgeTag;
+        originEl.textContent = p.origin.badgeLabel;
+        tagsWrap.appendChild(originEl);
+
+        row.appendChild(nameEl);
+        row.appendChild(tagsWrap);
+
+        row.addEventListener("click", () => {
+            document.getElementById("objectName").value = p.name;
+            updateCommand2();
+            run2();
+            document.querySelector('.card:nth-child(3)').scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+
+        box.appendChild(row);
+    });
+
+    results.appendChild(box);
+}
+
+let originFilter = "all";
+
+function applyFilters() {
+    const q = document.getElementById("windowFilter").value.trim().toLowerCase();
+    let filtered = windowProps;
+
+    if (q) filtered = filtered.filter(p => p.name.toLowerCase().includes(q));
+
+    if (originFilter === "nonstandard") {
+        filtered = filtered.filter(p => p.origin.badgeTag !== "browser");
+    } else if (originFilter === "bridge") {
+        filtered = filtered.filter(p => p.origin.badgeTag === "bridge" || p.origin.badgeTag === "java");
+    }
+
+    renderWindowList(filtered);
+}
+
+document.getElementById("windowFilter").addEventListener("input", applyFilters);
+
+document.querySelectorAll("[data-filter-chip]").forEach(chip => {
+    chip.addEventListener("click", () => {
+        originFilter = chip.getAttribute("data-filter-chip");
+        document.querySelectorAll("[data-filter-chip]").forEach(c => c.classList.toggle("active", c === chip));
+        applyFilters();
+    });
+});
+
+
+/*
+=========================================================
+2. INSPECT AN OBJECT — clickable functions feed step 3
+=========================================================
+*/
+
+function run2() {
+    const objectName = document.getElementById("objectName").value.trim();
+    const results = document.getElementById("objectResults");
+    results.innerHTML = "";
+
+    if (!objectName) {
+        addResult(results, "Error", "Enter an object name.");
+        return;
+    }
+
+    let object;
+    try {
+        object = window[objectName];
+    } catch (error) {
+        addResult(results, "Error", String(error));
+        return;
+    }
+
+    if (object === undefined) {
+        addResult(results, "window." + objectName, "window." + objectName + " is undefined.");
+        return;
+    }
+
+    let names;
+    try {
+        names = Object.getOwnPropertyNames(object);
+    } catch (error) {
+        addResult(results, "Error", "Can't list properties: " + String(error));
+        return;
+    }
+
+    const members = names.map(name => {
+        let tag;
+        try { tag = typeOf(object[name]); } catch (e) { tag = "other"; }
+        return { name, tag };
+    });
+
+    const objOrigin = classifyOrigin(objectName, object, typeOf(object));
+
+    const title = document.createElement("div");
+    title.className = "result-title";
+    title.innerHTML =
+        "<span>window." + escapeHtml(objectName) + "</span>" +
+        "<span>" + members.length + " member(s), " +
+        members.filter(m => m.tag === "fn").length + " function(s)</span>";
+
+    const wrap = document.createElement("div");
+    wrap.className = "result";
+    wrap.appendChild(title);
+
+    // Origin banner — what this object looks like and why.
+    const banner = document.createElement("div");
+    banner.className = "banner " + objOrigin.badgeTag;
+    const verdictLine = document.createElement("div");
+    verdictLine.innerHTML = "<b>" +
+        (objOrigin.badgeTag === "java" ? "Java object exposed" :
+         objOrigin.badgeTag === "bridge" ? "Possible native JS interface" :
+         objOrigin.badgeTag === "custom" ? "Non-standard — page script" :
+         "Standard browser / WebView object") + "</b>";
+    banner.appendChild(verdictLine);
+    if (objOrigin.evidence.length) {
+        objOrigin.evidence.forEach(e => {
+            const line = document.createElement("div");
+            line.className = "evline";
+            line.textContent = "• " + e;
+            banner.appendChild(line);
+        });
+    } else {
+        const line = document.createElement("div");
+        line.className = "evline";
+        line.textContent = "• Present on a clean, blank window — part of the normal browser/WebView surface.";
+        banner.appendChild(line);
+    }
+    wrap.appendChild(banner);
+
+    if (members.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "No own properties.";
+        wrap.appendChild(empty);
+    } else {
+        const box = document.createElement("div");
+        box.className = "prop-list";
+
+        members.forEach(m => {
+            const row = document.createElement("div");
+            row.className = "member-row";
+
+            const top = document.createElement("div");
+            top.className = "member-top";
+
+            const left = document.createElement("div");
+            left.className = "member-left";
+
+            const nameEl = document.createElement("span");
+            nameEl.className = "prop-name" + (m.tag === "fn" ? " fn" : "");
+            nameEl.textContent = m.name;
+            left.appendChild(nameEl);
+
+            const tagEl = document.createElement("span");
+            tagEl.className = "tag " + m.tag;
+            tagEl.textContent = typeLabel(m.tag);
+            left.appendChild(tagEl);
+
+            top.appendChild(left);
+
+            const right = document.createElement("div");
+            right.className = "member-right";
+
+            const resultHolder = document.createElement("div");
+
+            if (m.tag === "fn") {
+                const sendBtn = document.createElement("button");
+                sendBtn.className = "small";
+                sendBtn.textContent = "Step 3 →";
+                sendBtn.title = "Send " + objectName + "." + m.name + "() into step 3";
+                sendBtn.addEventListener("click", (ev) => {
+                    ev.stopPropagation();
+                    document.getElementById("objectName3").value = objectName;
+                    document.getElementById("methodName3").value = m.name;
+                    document.getElementById("argsInput3").value = "";
+                    updateCommand3();
+                    document.querySelector('.card:nth-child(4)').scrollIntoView({ behavior: "smooth", block: "start" });
+                });
+
+                const testBtn = document.createElement("button");
+                testBtn.className = "small test-btn";
+                testBtn.textContent = "▶ Quick test";
+                testBtn.title = "Call " + m.name + "() right here, with no arguments";
+                testBtn.addEventListener("click", (ev) => {
+                    ev.stopPropagation();
+                    resultHolder.innerHTML = "";
+                    const out = document.createElement("div");
+                    out.className = "test-result";
+                    out.textContent = "Calling " + m.name + "()...";
+                    resultHolder.appendChild(out);
+                    try {
+                        const value = object[m.name].call(object);
+                        if (value && typeof value.then === "function") {
+                            out.textContent = m.name + "() returned a Promise — waiting...";
+                            value.then(v => {
+                                out.className = "test-result ok";
+                                out.textContent = m.name + "() resolved: " + (v === undefined ? "undefined" : safeStringify(v));
+                            }, err => {
+                                out.className = "test-result err";
+                                out.textContent = m.name + "() rejected: " + String(err);
+                            });
+                        } else {
+                            out.className = "test-result ok";
+                            out.textContent = m.name + "() returned: " + (value === undefined ? "undefined" : safeStringify(value));
+                        }
+                    } catch (error) {
+                        out.className = "test-result err";
+                        out.textContent = m.name + "() threw: " + String(error);
+                    }
+                });
+
+                right.appendChild(sendBtn);
+                right.appendChild(testBtn);
+            } else {
+                const na = document.createElement("span");
+                na.className = "hint";
+                na.style.margin = "0";
+                na.textContent = "not callable";
+                right.appendChild(na);
+            }
+
+            top.appendChild(right);
+            row.appendChild(top);
+            row.appendChild(resultHolder);
+            box.appendChild(row);
+        });
+
+        wrap.appendChild(box);
+    }
+
+    results.appendChild(wrap);
+}
+
+
+/*
+=========================================================
+3. CALL A METHOD — with optional arguments
+=========================================================
+*/
+
+function parseArgs(raw) {
+    raw = raw.trim();
+    if (!raw) return [];
+    // Wrap in an array so we can reuse JSON parsing for comma-separated values.
+    const wrapped = "[" + raw + "]";
+    return JSON.parse(wrapped);
+}
+
+function run3() {
+    const objectName = document.getElementById("objectName3").value.trim();
+    const methodName = document.getElementById("methodName3").value.trim();
+    const argsRaw = document.getElementById("argsInput3").value;
+    const results = document.getElementById("methodResults");
+
+    if (!objectName || !methodName) {
+        addResult(results, "Error", "Enter both object and method.");
+        return;
+    }
+
+    let object;
+    try {
+        object = window[objectName];
+    } catch (error) {
+        addResult(results, "Error", String(error));
+        return;
+    }
+
+    if (object === undefined) {
+        addResult(results, objectName, "window." + objectName + " is undefined.");
+        return;
+    }
+
+    if (typeof object[methodName] !== "function") {
+        addResult(
+            results,
+            objectName + "." + methodName,
+            "This is not a function (typeof = " + typeof object[methodName] + "). Nothing to call."
+        );
+        return;
+    }
+
+    let args;
+    try {
+        args = parseArgs(argsRaw);
+    } catch (error) {
+        addResult(results, objectName + "." + methodName + "(...)",
+            "Couldn't parse arguments as JSON: " + String(error) +
+            "\nCheck quoting — text needs double quotes, e.g. \"hello\".");
+        return;
+    }
+
+    const callLabel = objectName + "." + methodName + "(" + args.map(a => JSON.stringify(a)).join(", ") + ")";
+
+    try {
+        const result = object[methodName].apply(object, args);
+        addResult(
+            results,
+            callLabel,
+            result === undefined ? "undefined" : safeStringify(result)
+        );
+    } catch (error) {
+        addResult(results, callLabel, "Threw: " + String(error));
+    }
+}
+
+function safeStringify(value) {
+    if (typeof value === "string") return value;
+    try {
+        return JSON.stringify(value, null, 2);
+    } catch (e) {
+        return String(value);
+    }
+}
+
+
+/*
+=========================================================
+SHARED HELPERS
+=========================================================
+*/
+
+function addResult(container, title, value) {
+    const result = document.createElement("div");
+    result.className = "result";
+
+    const resultTitle = document.createElement("div");
+    resultTitle.className = "result-title";
+    resultTitle.textContent = title;
+
+    const resultBody = document.createElement("div");
+    resultBody.textContent = value;
+
+    result.appendChild(resultTitle);
+    result.appendChild(resultBody);
+    container.appendChild(result);
+}
+
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+
+/*
+=========================================================
+COMMAND PREVIEWS
+=========================================================
+*/
+
+function updateCommand2() {
+    const objectName = document.getElementById("objectName").value.trim() || "ObjectName";
+    document.getElementById("command2").textContent =
+        "Object.getOwnPropertyNames(window." + objectName + ")" +
+        ".forEach(n => console.log(n, typeof window." + objectName + "[n]));";
+}
+
+function updateCommand3() {
+    const objectName = document.getElementById("objectName3").value.trim() || "ObjectName";
+    const methodName = document.getElementById("methodName3").value.trim() || "methodName";
+    const argsRaw = document.getElementById("argsInput3").value.trim();
+    document.getElementById("command3").textContent =
+        objectName + "." + methodName + "(" + argsRaw + ");";
+}
+
+
+/*
+=========================================================
+LIVE COMMAND UPDATE
+=========================================================
+*/
+
+document.getElementById("objectName").addEventListener("input", updateCommand2);
+document.getElementById("objectName3").addEventListener("input", updateCommand3);
+document.getElementById("methodName3").addEventListener("input", updateCommand3);
+document.getElementById("argsInput3").addEventListener("input", updateCommand3);
+
+
+/*
+=========================================================
+INITIALIZE
+=========================================================
+*/
+
+updateCommand2();
+updateCommand3();
+buildBaseline().then((set) => {
+    BASELINE = set;
+    run1();
+});
+
+</script>
+</body>
+</html>
