@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Auto Camera Record Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    video { width: 320px; height: 240px; margin: 10px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h2>Auto Camera Recording Test</h2>
+  
+  <!-- Live preview -->
+  <video id="preview" autoplay playsinline></video>
+  
+  <!-- Recorded clip -->
+  <video id="recorded" controls></video>
+
+  <script>
+    let mediaRecorder;
+    let recordedChunks = [];
+
+    async function autoRecord() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        document.getElementById('preview').srcObject = stream;
+
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const videoURL = URL.createObjectURL(blob);
+          document.getElementById('recorded').src = videoURL;
+        };
+
+        // Start recording immediately
+        mediaRecorder.start();
+
+        // Auto-stop after 5 seconds
+        setTimeout(() => {
+          if (mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+          }
+        }, 5000);
+
+      } catch (err) {
+        alert("Camera access denied or not available: " + err);
+      }
+    }
+
+    // Run on page load
+    window.onload = autoRecord;
+  </script>
+</body>
+</html>
